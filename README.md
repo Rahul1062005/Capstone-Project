@@ -71,11 +71,11 @@ As specified in the Project Scope Document, work has strictly progressed through
   - 100% passing tests in `tests/test_tb_pc.py`.
 
 ### Phase 6: Fraud Monitoring Portal & Gateway (Weeks 5–7) — Exit Check: Upload-to-Result Works ✅
-- [x] **Node.js Express Backend (`backend/server.js`):**
-  - REST gateway proxying to FastAPI.
-  - Rate limiting middleware (FR-13) and analyst authentication.
+- [x] **Enterprise Spring Boot Backend (`backend/`):**
+  - High-performance Java 21 Spring Boot gateway proxying to FastAPI.
+  - Ephemeral HMAC-SHA256 challenge generation and single-use nonce tracking.
   - Cryptographic hash-chained audit logging anchor (`prev_hash`, `record_hash`) storing feature metadata with zero raw audio persistence.
-  - Metadata purge endpoint (`DELETE /api/audit/records/:id`) complying with FR-11 privacy rights.
+  - Metadata purge endpoint (`DELETE /api/audit/records/{id}`) complying with FR-11 privacy rights.
 - [x] **React + Vite + TypeScript Dashboard (`frontend/src/App.tsx`):**
   - Sleek FinTech dark glassmorphism portal.
   - Live sliding-window risk timeline graph with Recharts (FR-05).
@@ -89,9 +89,9 @@ As specified in the Project Scope Document, work has strictly progressed through
 
 | Layer | Technology | Status |
 |:---|:---|:---:|
-| **Audio & ML Service** | Python 3.13, PyTorch 2.14, Librosa 1.0, SoundFile, SciPy | ✅ Active |
-| **Backend API** | Node.js + Express (JWT, HMAC-SHA256 TB-PC generation, Audit chain) | ✅ Active |
-| **Frontend Portal** | React + Vite + TypeScript, Recharts (Fraud Dashboard) | ✅ Active |
+| **Frontend Portal** | React + Vite + TypeScript, Recharts (Fraud Dashboard) | ✅ Active (Port 5173) |
+| **Backend Gateway** | Java 21 + Spring Boot 3.4 (HMAC Challenges & Audit Ledger) | ✅ Active (Port 5000) |
+| **Audio & AI Engine** | Python 3.13, PyTorch 2.14, FastAPI, Librosa, SciPy | ✅ Active (Port 8000) |
 | **Testing** | pytest (19 automated tests passing) | ✅ Active |
 
 ---
@@ -103,11 +103,10 @@ As specified in the Project Scope Document, work has strictly progressed through
 uvicorn ai_service.api:app --reload --port 8000
 ```
 
-### 2. Launch Node.js Backend Gateway (Port 5000)
+### 2. Launch Spring Boot Backend Gateway (Port 5000)
 ```bash
 cd backend
-npm install
-npm start
+.\gradlew.bat bootRun
 ```
 
 ### 3. Launch React Frontend Portal (Port 5173)
