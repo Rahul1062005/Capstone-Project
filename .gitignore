@@ -34,6 +34,14 @@ yarn-error.log*
 out/
 dist/
 
+# Java / Gradle
+.gradle/
+build/
+!backend-spring/build.gradle
+backend-spring/build/
+backend-spring/.gradle/
+*.class
+
 # Audio Data & Checkpoints (Heavy binaries excluded from Git)
 data/raw/
 data/external/
