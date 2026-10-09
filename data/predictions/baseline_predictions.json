@@ -1,0 +1,200 @@
+[
+  {
+    "file_name": "corrupted_payload.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\corrupted_payload.wav",
+    "ground_truth_label": "unlabelled",
+    "status": "REJECTED_INVALID_AUDIO",
+    "prediction": null,
+    "error": "Failed to decode audio header/stream: Error opening 'D:\\\\Study_Time\\\\Projects\\\\Capstone Project\\\\data\\\\test_samples\\\\corrupted_payload.wav': Format not recognised."
+  },
+  {
+    "file_name": "genuine_human_speaker_a.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\genuine_human_speaker_a.wav",
+    "ground_truth_label": "genuine",
+    "status": "SUCCESS",
+    "prediction": {
+      "model_metadata": {
+        "model_name": "AASIST-ResNet-Baseline",
+        "model_version": "v1.2.0-baseline",
+        "provenance": "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols",
+        "target_sample_rate": 16000,
+        "device": "cpu",
+        "is_hardcoded": false
+      },
+      "inference_metrics": {
+        "inference_latency_ms": 1559.03,
+        "audio_duration_seconds": 3.5,
+        "channel_confidence": 0.75,
+        "snr_db": 36.52,
+        "is_band_limited_8khz": true
+      },
+      "scores": {
+        "raw_logits": [
+          -1.6279,
+          0.4762
+        ],
+        "spoof_probability": 0.4565,
+        "bonafide_probability": 0.5435,
+        "score_interpretation": "AMBIGUOUS_SUSPICIOUS",
+        "recommended_action": "VERIFY"
+      },
+      "quality_warnings": [
+        "Telephone 8 kHz band-limiting detected; high-frequency phase cues suppressed."
+      ],
+      "disclaimer": "Notice: Prediction is probabilistic and derived from acoustic-spectro representations. Output is an advisory risk signal for fraud analysts and not conclusive proof of identity or fraud."
+    },
+    "error": null
+  },
+  {
+    "file_name": "genuine_human_speaker_b.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\genuine_human_speaker_b.wav",
+    "ground_truth_label": "genuine",
+    "status": "SUCCESS",
+    "prediction": {
+      "model_metadata": {
+        "model_name": "AASIST-ResNet-Baseline",
+        "model_version": "v1.2.0-baseline",
+        "provenance": "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols",
+        "target_sample_rate": 16000,
+        "device": "cpu",
+        "is_hardcoded": false
+      },
+      "inference_metrics": {
+        "inference_latency_ms": 18.74,
+        "audio_duration_seconds": 2.5,
+        "channel_confidence": 0.75,
+        "snr_db": 35.33,
+        "is_band_limited_8khz": true
+      },
+      "scores": {
+        "raw_logits": [
+          -1.7611,
+          0.5187
+        ],
+        "spoof_probability": 0.4629,
+        "bonafide_probability": 0.5371,
+        "score_interpretation": "AMBIGUOUS_SUSPICIOUS",
+        "recommended_action": "VERIFY"
+      },
+      "quality_warnings": [
+        "Telephone 8 kHz band-limiting detected; high-frequency phase cues suppressed."
+      ],
+      "disclaimer": "Notice: Prediction is probabilistic and derived from acoustic-spectro representations. Output is an advisory risk signal for fraud analysts and not conclusive proof of identity or fraud."
+    },
+    "error": null
+  },
+  {
+    "file_name": "genuine_telephone_8khz_amr.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\genuine_telephone_8khz_amr.wav",
+    "ground_truth_label": "genuine",
+    "status": "SUCCESS",
+    "prediction": {
+      "model_metadata": {
+        "model_name": "AASIST-ResNet-Baseline",
+        "model_version": "v1.2.0-baseline",
+        "provenance": "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols",
+        "target_sample_rate": 16000,
+        "device": "cpu",
+        "is_hardcoded": false
+      },
+      "inference_metrics": {
+        "inference_latency_ms": 20.64,
+        "audio_duration_seconds": 3.5,
+        "channel_confidence": 0.384,
+        "snr_db": 17.79,
+        "is_band_limited_8khz": true
+      },
+      "scores": {
+        "raw_logits": [
+          0.1545,
+          0.1654
+        ],
+        "spoof_probability": 0.8011,
+        "bonafide_probability": 0.1989,
+        "score_interpretation": "SYNTHETIC_DEEPFAKE",
+        "recommended_action": "HOLD_FOR_REVIEW"
+      },
+      "quality_warnings": [
+        "Telephone 8 kHz band-limiting detected; high-frequency phase cues suppressed."
+      ],
+      "disclaimer": "Notice: Prediction is probabilistic and derived from acoustic-spectro representations. Output is an advisory risk signal for fraud analysts and not conclusive proof of identity or fraud."
+    },
+    "error": null
+  },
+  {
+    "file_name": "synthetic_tts_neural_v2.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\synthetic_tts_neural_v2.wav",
+    "ground_truth_label": "spoof",
+    "status": "SUCCESS",
+    "prediction": {
+      "model_metadata": {
+        "model_name": "AASIST-ResNet-Baseline",
+        "model_version": "v1.2.0-baseline",
+        "provenance": "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols",
+        "target_sample_rate": 16000,
+        "device": "cpu",
+        "is_hardcoded": false
+      },
+      "inference_metrics": {
+        "inference_latency_ms": 19.69,
+        "audio_duration_seconds": 3.0,
+        "channel_confidence": 0.75,
+        "snr_db": 37.0,
+        "is_band_limited_8khz": true
+      },
+      "scores": {
+        "raw_logits": [
+          -0.1972,
+          0.1562
+        ],
+        "spoof_probability": 0.335,
+        "bonafide_probability": 0.665,
+        "score_interpretation": "GENUINE_HUMAN",
+        "recommended_action": "ALLOW"
+      },
+      "quality_warnings": [
+        "Telephone 8 kHz band-limiting detected; high-frequency phase cues suppressed."
+      ],
+      "disclaimer": "Notice: Prediction is probabilistic and derived from acoustic-spectro representations. Output is an advisory risk signal for fraud analysts and not conclusive proof of identity or fraud."
+    },
+    "error": null
+  },
+  {
+    "file_name": "synthetic_voice_clone_v1.wav",
+    "file_path": "D:\\Study_Time\\Projects\\Capstone Project\\data\\test_samples\\synthetic_voice_clone_v1.wav",
+    "ground_truth_label": "spoof",
+    "status": "SUCCESS",
+    "prediction": {
+      "model_metadata": {
+        "model_name": "AASIST-ResNet-Baseline",
+        "model_version": "v1.2.0-baseline",
+        "provenance": "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols",
+        "target_sample_rate": 16000,
+        "device": "cpu",
+        "is_hardcoded": false
+      },
+      "inference_metrics": {
+        "inference_latency_ms": 17.48,
+        "audio_duration_seconds": 3.5,
+        "channel_confidence": 0.75,
+        "snr_db": 38.03,
+        "is_band_limited_8khz": true
+      },
+      "scores": {
+        "raw_logits": [
+          -0.5098,
+          0.095
+        ],
+        "spoof_probability": 0.3587,
+        "bonafide_probability": 0.6413,
+        "score_interpretation": "AMBIGUOUS_SUSPICIOUS",
+        "recommended_action": "VERIFY"
+      },
+      "quality_warnings": [
+        "Telephone 8 kHz band-limiting detected; high-frequency phase cues suppressed."
+      ],
+      "disclaimer": "Notice: Prediction is probabilistic and derived from acoustic-spectro representations. Output is an advisory risk signal for fraud analysts and not conclusive proof of identity or fraud."
+    },
+    "error": null
+  }
+]
