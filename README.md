@@ -63,6 +63,26 @@ As specified in the Project Scope Document, work has strictly progressed through
   - Spoken challenge outcome matrix (`PASS` downgrades, `FAIL` holds, `INCONCLUSIVE` retries).
 - [x] **Automated Scenario Tests:** 16 passing unit tests across low-risk, high-risk, degraded line, persistence, and matrix scenarios.
 
+### Phase 5: TB-PC Service (Weeks 6–8) — Exit Check: Challenge Round Trip Works (SC5) ✅
+- [x] **Cryptographic Challenge Generation (`ai_service/tb_pc_verifier.py` & `backend/server.js`):**
+  - Ephemeral HMAC-SHA256 derived phrase tied to transaction amount and single-use 60-second nonce (FR-09).
+- [x] **Multi-Dimensional Response Scoring:**
+  - Evaluates digit match, caller latency cadence (400ms–2400ms biological vs >2500ms on-demand clone lag or <200ms stolen replay), syllabic articulation rate, and biomechanical stability (FR-10).
+  - 100% passing tests in `tests/test_tb_pc.py`.
+
+### Phase 6: Fraud Monitoring Portal & Gateway (Weeks 5–7) — Exit Check: Upload-to-Result Works ✅
+- [x] **Node.js Express Backend (`backend/server.js`):**
+  - REST gateway proxying to FastAPI.
+  - Rate limiting middleware (FR-13) and analyst authentication.
+  - Cryptographic hash-chained audit logging anchor (`prev_hash`, `record_hash`) storing feature metadata with zero raw audio persistence.
+  - Metadata purge endpoint (`DELETE /api/audit/records/:id`) complying with FR-11 privacy rights.
+- [x] **React + Vite + TypeScript Dashboard (`frontend/src/App.tsx`):**
+  - Sleek FinTech dark glassmorphism portal.
+  - Live sliding-window risk timeline graph with Recharts (FR-05).
+  - Interactive TB-PC challenge simulator with 60-second countdown and per-check score diagnostics.
+  - Hash-chained audit trail visualizer.
+  - Microphone recording consent modal (FR-13).
+
 ---
 
 ## 3. Technology Stack
@@ -70,44 +90,34 @@ As specified in the Project Scope Document, work has strictly progressed through
 | Layer | Technology | Status |
 |:---|:---|:---:|
 | **Audio & ML Service** | Python 3.13, PyTorch 2.14, Librosa 1.0, SoundFile, SciPy | ✅ Active |
-| **Testing** | pytest, pytest-asyncio | ✅ Active |
-| **Backend API** | Node.js + Express (JWT, HMAC-SHA256 TB-PC generation) | Phase 5–6 |
-| **Frontend Portal** | React + Vite + TypeScript, Recharts (Fraud Dashboard) | Phase 5–7 |
-| **Database** | MongoDB (Metadata, scan scores, hash-chained audit logs) | Phase 6 |
+| **Backend API** | Node.js + Express (JWT, HMAC-SHA256 TB-PC generation, Audit chain) | ✅ Active |
+| **Frontend Portal** | React + Vite + TypeScript, Recharts (Fraud Dashboard) | ✅ Active |
+| **Testing** | pytest (19 automated tests passing) | ✅ Active |
 
 ---
 
-## 4. Quickstart & Verification
+## 4. Quickstart: Running the Full Stack
 
-### 1. Install Dependencies
+### 1. Launch Python AI Microservice (Port 8000)
 ```bash
-pip install -r requirements.txt
+uvicorn ai_service.api:app --reload --port 8000
 ```
 
-### 2. Generate Benchmark Audio Fixtures
+### 2. Launch Node.js Backend Gateway (Port 5000)
 ```bash
-python scripts/generate_benchmark_audio.py
+cd backend
+npm install
+npm start
 ```
 
-### 3. Run Dataset Indexer (Phase 1 Exit Check)
+### 3. Launch React Frontend Portal (Port 5173)
 ```bash
-python scripts/index_data.py
+cd frontend
+npm install
+npm run dev
 ```
-Outputs manifests in `data/manifests/dataset_manifest.json` and `.csv`.
 
-### 4. Run Baseline Inference (Phase 2 Exit Check)
-```bash
-python scripts/run_baseline_inference.py
-```
-Produces real model predictions in `data/predictions/baseline_predictions.json`.
-
-### 5. Inspect Failures & Channel Degradation
-```bash
-python scripts/inspect_baseline_failures.py
-```
-Generates comprehensive analysis in `docs/PHASE_2_BASELINE_REPORT.md`.
-
-### 6. Run Unit Tests
+### 4. Run Automated Tests
 ```bash
 pytest -v
 ```
@@ -118,11 +128,11 @@ pytest -v
 
 - [x] **Phase 1: Define (Weeks 1–2):** Requirements, SIH verification, licences, repo, data indexing.
 - [x] **Phase 2: Baseline (Weeks 3–4):** Pretrained baseline model inference, failure inspection, degradation analysis.
-- [ ] **Phase 3: AI API (Weeks 5–6):** FastAPI streaming service, VAD, 2 s windowed inference (0.5 s hop).
-- [ ] **Phase 4: Risk Engine (Weeks 7–8):** Transaction contextual fusion, low-confidence guard, decision matrix.
-- [ ] **Phase 5: TB-PC (Weeks 6–8):** HMAC-SHA256 spoken challenge derivation, ASR digit verification.
-- [ ] **Phase 6: Dashboard & Audit (Weeks 5–7):** MERN portal, live risk timeline, hash-chained audit trail.
-- [ ] **Phase 7: Evaluation & Viva (Weeks 8–12):** EER, ROC-AUC, cross-dataset evaluation, demonstration video.
+- [x] **Phase 3: AI API (Weeks 5–6):** FastAPI streaming service, VAD, 2 s windowed inference (0.5 s hop).
+- [x] **Phase 4: Risk Engine (Weeks 7–8):** Transaction contextual fusion, low-confidence guard, decision matrix.
+- [x] **Phase 5: TB-PC (Weeks 6–8):** HMAC-SHA256 spoken challenge derivation, cadence timing, and response verification.
+- [x] **Phase 6: Dashboard & Audit (Weeks 5–7):** MERN portal, live risk timeline, hash-chained audit trail.
+- [ ] **Phase 7: Evaluation & Viva (Weeks 8–12):** Cross-dataset evaluation, demonstration video, viva presentation slides.
 
 ---
 

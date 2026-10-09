@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-dark: #070a11;
+  --bg-card: rgba(15, 23, 42, 0.72);
+  --bg-card-hover: rgba(23, 35, 62, 0.85);
+  --border-card: rgba(56, 189, 248, 0.15);
+  --border-focus: #00f0ff;
+
+  --color-primary: #38bdf8;
+  --color-cyan: #00f0ff;
+  --color-emerald: #10b981;
+  --color-rose: #f43f5e;
+  --color-amber: #f59e0b;
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --shadow-glow-cyan: 0 0 25px rgba(0, 240, 255, 0.2);
+  --shadow-glow-rose: 0 0 25px rgba(244, 63, 94, 0.25);
+  --shadow-glow-emerald: 0 0 25px rgba(16, 185, 129, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-dark);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.5) 0px, transparent 100%);
+  color: var(--text-main);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.25s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.badge-allow {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: var(--shadow-glow-emerald);
+}
+
+.badge-verify {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-hold {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  box-shadow: var(--shadow-glow-rose);
+  animation: pulse-danger 2s infinite ease-in-out;
+}
+
+@keyframes pulse-danger {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45);
+  }
+}
+
+/* Interactive elements */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #00f0ff 100%);
+  color: #040814;
+  font-weight: 700;
+  padding: 10px 22px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(0, 240, 255, 0.45);
+}
+
+.btn-outline {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-card);
+  color: var(--text-main);
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.btn-outline:hover {
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.45);
+}

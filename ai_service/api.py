@@ -32,6 +32,7 @@ from ai_service.risk_engine import (
     RiskEngine,
     TransactionContext,
 )
+from ai_service.tb_pc_verifier import TBPCCryptoChallenge, TBPCResponseVerifier
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AI_API")
@@ -57,6 +58,7 @@ detector = BaselineAntiSpoofDetector()
 bafv_extractor = BiomechanicalFeatureExtractor(sample_rate=16000)
 window_analyzer = WindowedStreamAnalyzer(detector=detector)
 risk_engine = RiskEngine()
+tbpc_verifier = TBPCResponseVerifier(target_sample_rate=16000)
 
 
 # --- Response Schemas ---
@@ -179,6 +181,50 @@ async def evaluate_multimodal_risk(payload: RiskEvaluationPayload) -> RiskDecisi
         previous_smoothed_score=payload.previous_smoothed_score,
         recent_window_actions=payload.recent_window_actions,
         challenge_outcome=payload.challenge_outcome,
+    )
+
+
+class TBPCGeneratePayload(BaseModel):
+    transaction_id: str
+    amount_inr: float
+    nonce: str
+    secret_key: Optional[str] = "DEFAULT-BANK-KEY-2026"
+    validity_seconds: int = 60
+
+
+class TBPCVerifyPayload(BaseModel):
+    samples: List[float]
+    expected_digits: str
+    transcribed_text: str
+    prompt_displayed_at: float
+    response_started_at: float
+
+
+@app.post("/api/v1/tbpc/generate")
+async def generate_spoken_challenge(payload: TBPCGeneratePayload) -> Dict[str, Any]:
+    """Generate dynamic HMAC-SHA256 spoken challenge (FR-09)."""
+    return TBPCCryptoChallenge.generate_challenge(
+        secret_key=payload.secret_key or "DEFAULT-BANK-KEY-2026",
+        transaction_id=payload.transaction_id,
+        amount_inr=payload.amount_inr,
+        nonce=payload.nonce,
+        validity_seconds=payload.validity_seconds,
+    )
+
+
+@app.post("/api/v1/tbpc/verify")
+async def verify_spoken_challenge_response(payload: TBPCVerifyPayload) -> Dict[str, Any]:
+    """Verify TB-PC challenge response for content, timing, and biomechanical stability (FR-10)."""
+    waveform = np.array(payload.samples, dtype=np.float32)
+    if len(waveform) < 8000:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Challenge audio too short (<0.5s).")
+
+    return tbpc_verifier.verify_challenge(
+        audio_waveform=waveform,
+        expected_digits=payload.expected_digits,
+        transcribed_text=payload.transcribed_text,
+        prompt_displayed_at=payload.prompt_displayed_at,
+        response_started_at=payload.response_started_at,
     )
 
 
