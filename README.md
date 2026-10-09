@@ -43,13 +43,25 @@ As specified in the Project Scope Document, work has strictly progressed through
   - Real tensor forward inference with raw logits and calibrated spoof probability (FR-03).
   - Score interpretation (`ALLOW`, `VERIFY`, `HOLD_FOR_REVIEW`), quality warnings, and probabilistic disclaimer (FR-04).
   - Sub-25ms inference latency tracking on standard CPU (SC6).
-- [x] **Manifest Inference Runner (`scripts/run_baseline_inference.py`):**
-  - Batch executes baseline model over indexed datasets and outputs structured predictions to `data/predictions/baseline_predictions.json`.
-- [x] **Failure Inspection & Evaluation (`scripts/inspect_baseline_failures.py`):**
+- [x] **Failure Inspection & Degradation Analysis (`scripts/inspect_baseline_failures.py`):**
   - Evaluates performance across clean vs 8 kHz telephone channel degradation (SC3, SC4).
   - Full report generated at [`docs/PHASE_2_BASELINE_REPORT.md`](docs/PHASE_2_BASELINE_REPORT.md).
-- [x] **Automated Test Suite (`pytest`):**
-  - 100% pass on 6 unit tests covering preprocessing, validation, failure modes, latency, and metadata contracts.
+
+### Phase 3: AI API (Weeks 5–6) — Exit Check: API Tests Pass ✅
+- [x] **Voice Activity Detection (`ai_service/vad.py`):** Energy and spectral flux VAD filtering silence and background noise.
+- [x] **Biomechanical Feature Extractor (`ai_service/bafv_features.py`):** F0 jitter, LPC formants (F1, F2, F3), shimmer, HNR, and anomaly scoring.
+- [x] **Windowed Stream Analyzer (`ai_service/windowed_analyzer.py`):** 2.0 s sliding windows with 0.5 s hop (FR-05) and risk timeline smoothing ($S_t$).
+- [x] **FastAPI Microservice (`ai_service/api.py`):** REST endpoints for `/health`, `/api/v1/detect/file`, `/api/v1/detect/window`, and live `/api/v1/ws/stream` WebSocket.
+- [x] **API Test Suite:** Automated contract and integration tests in `tests/test_api.py`.
+
+### Phase 4: Risk Engine (Weeks 7–8) — Exit Check: Scenario Tests Pass (SC7) ✅
+- [x] **Multimodal Risk Fusion (`ai_service/risk_engine.py`):**
+  - Mathematical logit formulation: $\text{logit}(s) = b_0 + C \cdot (b_1 R_v + b_2 P_{pcta} + b_3 R_s) + b_4 R_c + b_5 R_t + b_6 (R_v \cdot R_t)$.
+  - Exponential temporal smoothing: $S_t = 0.6 \cdot S_{t-1} + 0.4 \cdot s_t$.
+  - Low-confidence guard (telephone/bad line cannot unilaterally hold on voice evidence alone).
+  - Persistence rule ($\ge 3$ holds in last 5 windows, unless $R_t > 0.9$).
+  - Spoken challenge outcome matrix (`PASS` downgrades, `FAIL` holds, `INCONCLUSIVE` retries).
+- [x] **Automated Scenario Tests:** 16 passing unit tests across low-risk, high-risk, degraded line, persistence, and matrix scenarios.
 
 ---
 
