@@ -61,19 +61,53 @@ class RiskDecisionOutput(BaseModel):
 
 
 class RiskEngine:
-    """Deterministic and Explainable Risk Engine."""
+    """Deterministic and Explainable Dynamic Risk Fusion Engine (DRFE)."""
 
-    # Default calibrated coefficients (Scope Section 9)
+    # Default calibrated coefficients (Scope Section 7 & 9)
     B0 = -1.2  # Base bias
     B1 = 2.4   # Weight for raw voice spoof score (R_v)
-    B2 = 1.1   # Weight for biomechanical anomaly (P_pcta)
-    B3 = 0.8   # Weight for sustained stability risk (R_s)
+    B2 = 1.1   # Weight for PCVS physiological coupled-trajectory anomaly (P_pcta)
+    B3 = 0.8   # Weight for speaker consistency risk (R_s)
     B4 = 0.5   # Penalty for channel degradation (R_c)
     B5 = 1.8   # Weight for simulated transaction risk (R_t)
     B6 = 1.5   # Cross-interaction between voice spoof and high transaction value
 
-    ALLOW_THRESHOLD = 0.35
+    # Adaptive Threshold Parameters (Scope Section 7)
+    # tau_L(a) = tau_L0 * [1 - kappa * min(1, ln(1 + a/a0) / ln(1 + a_max/a0))]
+    TAU_L0 = 0.35
+    KAPPA = 0.40
+    A0 = 10000.0     # Reference baseline amount: INR 10,000
+    A_MAX = 1000000.0 # Maximum scale amount: INR 10,00,000
     HOLD_THRESHOLD = 0.75
+
+    def compute_adaptive_allow_threshold(self, amount_inr: float) -> float:
+        """Compute amount-aware adaptive ALLOW threshold tau_L(a).
+        
+        High transaction values automatically lower the threshold for triggering verification.
+        """
+        if amount_inr <= 0:
+            return self.TAU_L0
+
+        ratio = math.log(1.0 + amount_inr / self.A0) / math.log(1.0 + self.A_MAX / self.A0)
+        scaled_ratio = min(1.0, max(0.0, ratio))
+        tau_l = self.TAU_L0 * (1.0 - self.KAPPA * scaled_ratio)
+        return float(round(tau_l, 4))
+
+    def select_adaptive_challenge(
+        self,
+        voice_risk: float,
+        txn_risk: float,
+        channel_conf: float,
+    ) -> str:
+        """Adaptive challenge selector based on policy table (Scope Section 9)."""
+        if voice_risk >= 0.75 and txn_risk >= 0.5:
+            return "SKIP_CHALLENGE_HOLD_IMMEDIATE"
+        elif channel_conf < 0.5:
+            return "REPEAT_CLEANER_LINE_OR_CALLBACK"
+        elif voice_risk >= 0.35 and txn_risk >= 0.6:
+            return "OUT_OF_BAND_BANK_APP_APPROVAL"
+        else:
+            return "RANDOM_DIGIT_SPOKEN_CHALLENGE"
 
     def compute_transaction_risk(self, txn: TransactionContext) -> float:
         """Compute normalized transaction risk R_t from mock financial parameters."""
@@ -124,8 +158,9 @@ class RiskEngine:
         else:
             smoothed_score = 0.6 * previous_smoothed_score + 0.4 * instantaneous_score
 
-        # 3. Base Threshold Evaluation
-        if smoothed_score < self.ALLOW_THRESHOLD:
+        # 3. Base Threshold Evaluation with Amount-Aware Adaptive Threshold (Scope Section 7)
+        tau_l = self.compute_adaptive_allow_threshold(txn.amount_inr)
+        if smoothed_score < tau_l:
             base_action = "ALLOW"
         elif smoothed_score < self.HOLD_THRESHOLD:
             base_action = "VERIFY"

@@ -1,8 +1,11 @@
 # Smart India Hackathon (SIH) Problem Alignment
 
-**Theme:** Cybersecurity and FinTech  
+**Mapped SIH Problem:** `SIH26104`: AI-Powered Real-Time Detection and Prevention of Voice Cloning Impersonation Attacks  
+**Organisation / Department:** All India Council for Technical Education (AICTE) - Cyber Security Cell  
+**Category & Theme:** Software | Blockchain and Cybersecurity  
+**Application Domain:** Banking, financial fraud prevention and telecom / contact-centre security  
 **Project Title:** BAFV-PCTA (Voice-Clone Fraud Shield)  
-**Full Title:** Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis for Voice-Clone Fraud Prevention  
+**Full Title:** Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis for Real-Time Voice-Clone Fraud Prevention  
 
 ---
 

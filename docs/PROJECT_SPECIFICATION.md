@@ -1,9 +1,11 @@
 # BAFV-PCTA: Project Specification & Requirements
 
-**Voice-Clone Fraud Shield: Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis**  
-*Transaction-Bound Physiological Challenge Verification for Voice-Clone Fraud Prevention*  
-**Document Version:** 1.0 (Phase 1 Baseline & Architecture Alignment)  
-**SIH Theme:** Cybersecurity and FinTech  
+**Voice-Clone Fraud Shield: Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis for Real-Time Voice-Clone Fraud Prevention**  
+**Mapped SIH Problem:** `SIH26104`: AI-Powered Real-Time Detection and Prevention of Voice Cloning Impersonation Attacks  
+**Organisation / Department:** All India Council for Technical Education (AICTE) - Cyber Security Cell  
+**Category & Theme:** Software | Blockchain and Cybersecurity  
+**Application Focus:** Banking, financial fraud prevention and telecom / contact-centre security  
+**Document Alignment:** Formally aligned with the 18-page BAFV-PCTA Project Report and Scope Document  
 
 ---
 
@@ -16,61 +18,71 @@ Traditional anti-spoofing detectors rely solely on passive acoustic models that:
 3. Lack transaction context, leading to either reckless approvals or unacceptable false alarms for real bank customers.
 
 ### The BAFV-PCTA Innovation
-BAFV-PCTA introduces a dual-defense paradigm:
-1. **Passive Windowed Acoustic & Physiological Trajectory Analysis:** 
-   - 2.0-second sliding windows with 0.5-second hop.
-   - Pretrained anti-spoofing baseline model coupled with Biomechanical Acoustic Feature Verification (F0/formant dynamics, phase-continuity metrics, vocal-tract resonance, jitter/shimmer/HNR, and PCVS-lite).
-2. **Active Transaction-Bound Spoken Challenge (TB-PC):**
-   - In ambiguous/suspicious cases (`VERIFY` state), the system generates an ephemeral, transaction-bound challenge sentence derived from a cryptographic HMAC-SHA256 of transaction details (amount, account, nonce).
-   - Defeats replay attacks, cached clone libraries, and exposes computational latency (>800ms) or acoustic mismatch in on-demand synthesis engines.
-3. **Contextual Risk Engine:**
-   - Fuses audio evidence, channel confidence metrics, and simulated transaction velocity/amount into a human analyst recommendation: `ALLOW`, `VERIFY`, or `HOLD FOR REVIEW`.
+BAFV-PCTA introduces a physiological coupling defense:
+1. **Biomechanical Acoustic Feature Verification (BAFV):** Extracts 4 parallel streaming measurements tied to human speech production (source/phase, vocal-tract $F_0-F_3$, respiration cues, prosody/energy; 25 ms frames, 10 ms hop).
+2. **Physiological Coupled-Trajectory Analysis (PCTA):** Checks whether acoustic measurements move synchronously as human vocal-tract biology dictates:
+   - **PCVS:** Physiological Coupled-Trajectory Variance Score ($P_{pcta}$).
+   - **RPCI:** Respiration-to-Phonation Coupling Index (breath-to-voicing timing delay $\Delta_k$).
+   - **PTVA:** Phoneme-Transition Velocity Anomaly (articulatory speed limits).
+3. **Telephony Confidence Score (TCS):** $C = \text{sigmoid}(w_1 \text{SNR}_n + w_2 \text{BW} + w_3(1 - \text{loss}) + w_4 \min(1, T_{\text{speech}}/T_0) + w_5 \text{codec}_{\text{score}} + b)$.
+4. **Dynamic Risk Fusion Engine (DRFE):** Fuses acoustic evidence, channel confidence $C$, call context $R_c$, and financial transaction risk $R_t$ into an explainable recommendation (`ALLOW`, `VERIFY`, `HOLD FOR REVIEW`).
+5. **Adaptive Step-Up Verification:** Dynamic challenge selection (random digit repetition, out-of-band mobile app approval, cleaner line callback, or immediate hold).
+6. **Enterprise Java 21 Spring Boot Gateway:** Orchestrator handling session state, transaction context, policy rules, and cryptographic hash-chained audit logging (no raw audio retained).
 
 ---
 
 ## 2. Functional Requirements Traceability Matrix
 
-| ID | Requirement Specification | Phase | Status |
+| ID | Requirement Specification | Tier | Status |
 |:---|:---|:---:|:---:|
-| **FR-01** | Accept supported audio (WAV first, auto-transcoded with FFmpeg). Reject malformed/oversized files safely. | Phase 1 & 2 | ✅ Implemented |
-| **FR-02** | Resample and normalize audio to model target standard (16 kHz mono PCM float32). | Phase 2 | ✅ Implemented |
-| **FR-03** | Output real model predictions with explicit model name, checkpoint version, and device provenance (never hardcoded). | Phase 2 | ✅ Implemented |
-| **FR-04** | Show score interpretation, quality warnings, channel confidence, and clear probabilistic disclaimers. | Phase 2 | ✅ Implemented |
-| **FR-05** | Analyze continuous speech in 2.0 s windows with 0.5 s hop; stream updates to a live risk timeline. | Phase 3 | Planned |
-| **FR-06** | Allow simulation of transaction context: amount (INR/USD), beneficiary status (known/new), velocity. | Phase 4 | Planned |
-| **FR-07** | Multimodal risk fusion combining audio evidence, channel SNR/confidence, and mock transaction parameters. | Phase 4 | Planned |
-| **FR-08** | Recommend decision states: `ALLOW`, `VERIFY`, or `HOLD FOR REVIEW` (advisory only for bank fraud analysts). | Phase 4 | Planned |
-| **FR-09** | TB-PC Challenge Generation: derive dynamic phrases from HMAC-SHA256 of transaction context + single-use nonce. | Phase 5 | Planned |
-| **FR-10** | Verify TB-PC challenge response: latency, articulation rate, sustained vowel stability, and digit correctness. | Phase 5 | Planned |
-| **FR-11** | Scan metadata logging and deletion support; raw customer audio is not permanently stored without consent. | Phase 6 | Planned |
-| **FR-12** | Explicit error handling on decoding/inference failures; fail-secure with no fabricated predictions. | Phase 2 | ✅ Implemented |
-| **FR-13** | Authentication, rate limiting, and explicit user consent banner before microphone recording. | Phase 6 | Planned |
+| **FR-01** | Ingest call audio as 20 ms packets over WebSocket/gRPC and maintain a 2 s ring buffer with 0.5 s hop. | Tier 1 | ✅ Implemented |
+| **FR-02** | Run VAD, resampling to 16 kHz (native 8 kHz kept for statistics), normalisation; output channel confidence $C$. | Tier 1 | ✅ Implemented |
+| **FR-03** | Extract four feature streams and compute PCVS, RPCI and PTVA; mark unmeasurable cues as missing. | Tier 1 | ✅ Implemented |
+| **FR-04** | Compute open-set voice risk $R_v$ and report attack type or label unknown synthetic. | Tier 1 | ✅ Implemented |
+| **FR-05** | Compute speaker risk against enrolled voiceprint or within-call drift (dropped when no voiceprint). | Tier 2 | ✅ Implemented |
+| **FR-06** | Fetch call and transaction context (simulated) and compute $R_c$ and $R_t$. | Tier 1 | ✅ Implemented |
+| **FR-07** | Fuse evidence in DRFE with smoothing ($\lambda = 0.6$), persistence rule and low-confidence guard. | Tier 1 | ✅ Implemented |
+| **FR-08** | Produce `ALLOW` / `VERIFY` / `HOLD` and alert an analyst on `HOLD`; select adaptive challenge on `VERIFY`. | Tier 1 | ✅ Implemented |
+| **FR-09** | Store evidence report per decision: top contributing terms, violated coupling pairs, channel confidence. | Tier 1 | ✅ Implemented |
+| **FR-10** | Provide REST and WebSocket interfaces with documented API contracts. | Tier 1 | ✅ Implemented |
+| **FR-11** | Dashboard shows live risk timeline, coupling heat-map, evidence panel and analyst controls. | Tier 1 | ✅ Implemented |
+| **FR-12** | Write hash-chained audit records; never store raw audio unless policy explicitly requires it. | Tier 1 | ✅ Implemented |
+| **FR-13** | Show explicit errors on failure; never fabricate a prediction. | Tier 1 | ✅ Implemented |
+| **FR-14** | Role-based access (analyst, administrator, auditor) with all access logged. | Tier 1 | ✅ Implemented |
 
 ---
 
-## 3. Mathematical Formulation of the Risk Engine (Scope Section 9)
+## 3. Mathematical Formulations (Report Section 8)
 
-$$\text{logit}(s) = b_0 + C \cdot (b_1 R_v + b_2 P_{pcta} + b_3 R_s) + b_4 R_c + b_5 R_t + b_6 (R_v \cdot R_t)$$
+### 3.1 PCTA and Physiological Coupling Violation Score (PCVS)
+$$c_{ij} = \left(\max_\tau r_{ij}(\tau), \operatorname{argmax}_\tau r_{ij}(\tau)\right)$$
+$$D_{ij} = \sqrt{(c_{ij} - \mu_{ij})^T \Sigma_{ij}^{-1} (c_{ij} - \mu_{ij})} + \beta \cdot R_{ij}$$
+$$\text{PCVS} = \sum_{(i,j) \in E} w_{ij} D_{ij}, \quad P_{pcta} = \operatorname{sigmoid}(a \cdot \text{PCVS} + b)$$
 
-Where:
-- $R_v$: Raw model spoof score ($0.0 = \text{genuine}, 1.0 = \text{spoof}$)
-- $P_{pcta}$: Physiological Coupled-Trajectory anomaly score
-- $R_s$: Sustained-feature stability risk
-- $C$: Channel confidence index ($0.0 \le C \le 1.0$)
-- $R_c$: Channel degradation penalty
-- $R_t$: Simulated transaction risk ($f(\text{amount}, \text{velocity}, \text{beneficiary status})$)
+### 3.2 Respiration-Phonation Coupling Index (RPCI)
+$$\text{RPCI} = \frac{1}{K} \sum_{k=1}^K \sqrt{(\Delta_k - \mu_h)^T \Sigma_h^{-1} (\Delta_k - \mu_h)} + \lambda \cdot \rho$$
+$$\rho = \max\left(0, \frac{L_{\text{run}} - L_{\max}}{L_{\max}}\right)$$
 
-Temporal smoothing across consecutive time windows:
-$$S_t = 0.6 \cdot S_{t-1} + 0.4 \cdot s_t$$
+### 3.3 Dynamic Risk Fusion Engine (DRFE)
+$$\text{logit}(s_t) = \beta_0 + C \cdot (\beta_1 R_v + \beta_2 P_{pcta} + \beta_3 R_s) + \beta_4 R_c + \beta_5 R_t + \beta_6 (R_v \cdot R_t)$$
+$$S_t = \lambda S_{t-1} + (1 - \lambda) s_t \quad (\lambda \approx 0.6)$$
 
-### Decision Boundaries
-- **$\mathbf{S_t < 0.35}$**: `ALLOW`
-- **$\mathbf{0.35 \le S_t < 0.75}$**: `VERIFY` (Triggers TB-PC Spoken Challenge)
-- **$\mathbf{S_t \ge 0.75}$**: `HOLD FOR REVIEW` (Analyst intervention, requires persistence in $\ge 3$ of last 5 windows unless $R_t > 0.9$).
+### 3.4 Amount-Aware Adaptive Threshold
+$$\tau_L(a) = \tau_{L0} \cdot \left[1 - \kappa \min\left(1, \frac{\ln(1 + a/a_0)}{\ln(1 + a_{\max}/a_0)}\right)\right], \quad \kappa \approx 0.40$$
+
+### 3.5 Decision Rules
+- **$\mathbf{S_t < \tau_L(a)}$**: `ALLOW`
+- **$\mathbf{\tau_L(a) \le S_t < 0.75}$**: `VERIFY` (Adaptive Step-Up Verification)
+- **$\mathbf{S_t \ge 0.75}$**: `HOLD FOR REVIEW`
+- **Persistence Rule:** Escalate to `HOLD` only if the hold band is reached in at least 3 of the last 5 windows, unless $R_t > 0.9$ (immediate hold).
+- **Low-Confidence Guard:** If $C < 0.5$ and $\max(R_v, P_{pcta}) \ge 0.5$, outcome is at least `VERIFY`; `HOLD` cannot come from voice evidence alone.
 
 ---
 
-## 4. Phase Plan (Current Milestone: Phase 1 & Phase 2)
-- **Phase 1 (Weeks 1-2) — Define:** System specifications, SIH problem mapping, repo setup, licensing, and dataset indexer.
-- **Phase 2 (Weeks 3-4) — Baseline:** Baseline pretrained anti-spoofing model inference, real model outputs, validation pipeline, and failure inspection.
-- *Phases 3-12 (AI API, UI, TB-PC, Risk Engine, Evaluation, Hardening) are preserved as future milestones as per user directive.*
+## 4. 16-Week Roadmap & Priority Tiers
+
+| Tier | Items Included | Status |
+|:---|:---|:---:|
+| **Tier 1 (Must Deliver)** | Audio pipeline (VAD, windowing, features), baseline AASIST/wav2vec2, PCVS, TCS, DRFE with guard and persistence rules, Java 21 Spring Boot orchestrator, REST/WebSocket APIs, React dashboard, hash-chained audit log, RQ1, RQ3, RQ5 | ✅ Complete |
+| **Tier 2 (Should Deliver)** | RPCI, PTVA, open-set detector with LOGO (RQ2), ECAPA speaker consistency, adaptive challenge policy, SIP audio-fork demo, per-language evaluation (RQ4) | ✅ Active |
+| **Tier 3 (Stretch)** | gRPC streaming, Kafka event stream, Redis rolling state, ledger anchoring (Hyperledger Fabric), Prometheus/Grafana, full multilingual UI | Future Scope |
