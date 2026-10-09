@@ -72,6 +72,24 @@ function appendAuditRecord(eventType, txnId, features) {
 
 // --- Routes ---
 
+// Root Status Page
+app.get('/', (req, res) => {
+  res.json({
+    project: 'BAFV-PCTA (Voice-Clone Fraud Shield)',
+    role: 'Application Backend & Audit Gateway',
+    status: 'ONLINE',
+    endpoints: {
+      health: '/health',
+      audit_records: '/api/audit/records',
+      challenge_generate: 'POST /api/challenge/generate',
+      scan_analyze: 'POST /api/scan/analyze',
+      auth_login: 'POST /api/auth/login',
+    },
+    python_ai_service: PYTHON_AI_URL,
+    frontend_portal: 'http://localhost:5173',
+  });
+});
+
 // Health & Status
 app.get('/health', (req, res) => {
   res.json({
