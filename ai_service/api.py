@@ -33,6 +33,7 @@ from ai_service.risk_engine import (
     TransactionContext,
 )
 from ai_service.tb_pc_verifier import TBPCCryptoChallenge, TBPCResponseVerifier
+from ai_service.open_set_detector import OpenSetGeneratorDetector, TelephonyChannelConfidenceSystem
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AI_API")
@@ -59,6 +60,8 @@ bafv_extractor = BiomechanicalFeatureExtractor(sample_rate=16000)
 window_analyzer = WindowedStreamAnalyzer(detector=detector)
 risk_engine = RiskEngine()
 tbpc_verifier = TBPCResponseVerifier(target_sample_rate=16000)
+open_set_detector = OpenSetGeneratorDetector()
+tcs_engine = TelephonyChannelConfidenceSystem()
 
 
 # --- Response Schemas ---
@@ -127,14 +130,31 @@ async def detect_audio_file(file: UploadFile = File(...)) -> Dict[str, Any]:
     # 3. Sliding-window timeline analysis (FR-05)
     timeline_result = window_analyzer.analyze_full_audio_timeline(waveform)
 
+    # 4. Open-Set Generator Detection (FR-04, Phase P4)
+    open_set_eval = open_set_detector.evaluate_open_set(
+        spoof_prob=baseline_result["scores"]["spoof_probability"],
+        pcvs_score=bafv_profile["bafv_anomaly_score"],
+        mahalanobis_dist=bafv_profile["pcta_engine"]["mahalanobis_distance"],
+        jitter_percent=bafv_profile["pitch_f0"]["jitter_percent"],
+        shimmer_percent=bafv_profile["voice_quality"]["shimmer_percent"],
+    )
+
+    # 5. Telephony Channel Confidence System (TCS, Scope Section 7)
+    tcs_meta = tcs_engine.compute_tcs(
+        snr_db=quality_meta["snr_db"],
+        is_band_limited_8khz=quality_meta["is_band_limited_8khz"],
+    )
+
     total_processing_ms = (time.perf_counter() - start_total) * 1000.0
 
     return {
         "file_name": file.filename,
         "processing_latency_ms": round(total_processing_ms, 2),
         "channel_metadata": quality_meta,
+        "telephony_confidence": tcs_meta,
         "baseline_detection": baseline_result,
         "biomechanical_features": bafv_profile,
+        "open_set_detector": open_set_eval,
         "windowed_timeline": timeline_result,
         "disclaimer": (
             "Notice: Predictions are probabilistic acoustic risk assessments and provide advisory decision support "

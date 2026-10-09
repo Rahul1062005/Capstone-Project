@@ -75,7 +75,7 @@ export const App: React.FC = () => {
   // Audit Chain State (FR-11)
   const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
 
-  // Sample presets for quick testing
+  // Sample presets for quick testing (Phase P3 PCTA Aligned)
   const samplePresets = {
     genuine_a: {
       name: 'Human Voice (Clean)',
@@ -86,6 +86,27 @@ export const App: React.FC = () => {
       snr: 28.5,
       bafvScore: 0.05,
       isBandLimited: false,
+      pcvsScore: 0.06,
+      mahalanobisDist: 0.82,
+      rpci: {
+        status: 'NORMAL_RESPIRATION_COUPLING',
+        breath_delay_ms: 48.2,
+        explanation: 'Natural pre-voicing respiration detected (48.2 ms delay)',
+      },
+      ptva: {
+        ptva_score: 0.08,
+        f1_max_velocity_hz_s: 4200.0,
+        f2_max_velocity_hz_s: 6800.0,
+        speed_limit_violation: false,
+      },
+      pairs: [
+        { pair: 'F0 ↔ F1', name: 'Glottal / Pharyngeal Coupling', desc: 'Natural Glottal Coupling (r = 0.84)', status: 'ALIGNED' },
+        { pair: 'F1 ↔ F2', name: 'Tongue Height / Backness Transition', desc: 'Physiological Trajectory (r = 0.79)', status: 'ALIGNED' },
+        { pair: 'F2 ↔ F3', name: 'Oral / Retroflex Resonator', desc: 'Natural Dynamic Resonators (r = 0.72)', status: 'ALIGNED' },
+        { pair: 'Energy ↔ Pitch', name: 'Subglottal Pressure Covariance', desc: 'Natural Lung-Vocal Fold Covariance (r = 0.81)', status: 'ALIGNED' },
+        { pair: 'Breath ↔ Onset', name: 'RPCI: Respiration-to-Voicing', desc: 'Normal Breath Coupling (48ms)', status: 'ALIGNED' },
+        { pair: 'Phase Continuity', name: 'Frame Boundary Phase Drift', desc: 'Continuous Acoustic Phase (drift < 0.08)', status: 'ALIGNED' },
+      ],
     },
     genuine_tel: {
       name: 'Telephone Degraded 8 kHz',
@@ -96,6 +117,27 @@ export const App: React.FC = () => {
       snr: 12.1,
       bafvScore: 0.18,
       isBandLimited: true,
+      pcvsScore: 0.19,
+      mahalanobisDist: 1.74,
+      rpci: {
+        status: 'BREATH_CUE_MISSING_OR_AMBIGUOUS',
+        breath_delay_ms: 0.0,
+        explanation: 'Pre-voicing breath cue suppressed by telephony codec (Rule: zero suspicion)',
+      },
+      ptva: {
+        ptva_score: 0.14,
+        f1_max_velocity_hz_s: 3800.0,
+        f2_max_velocity_hz_s: 5900.0,
+        speed_limit_violation: false,
+      },
+      pairs: [
+        { pair: 'F0 ↔ F1', name: 'Glottal / Pharyngeal Coupling', desc: 'Natural Glottal Coupling (r = 0.74)', status: 'ALIGNED' },
+        { pair: 'F1 ↔ F2', name: 'Tongue Height / Backness Transition', desc: 'Physiological Trajectory (r = 0.71)', status: 'ALIGNED' },
+        { pair: 'F2 ↔ F3', name: 'Oral / Retroflex Resonator', desc: 'Band-Limited Resonator (r = 0.63)', status: 'ALIGNED' },
+        { pair: 'Energy ↔ Pitch', name: 'Subglottal Pressure Covariance', desc: 'Lung-Vocal Fold Covariance (r = 0.69)', status: 'ALIGNED' },
+        { pair: 'Breath ↔ Onset', name: 'RPCI: Respiration-to-Voicing', desc: 'Breath Suppressed by Codec (Tolerated)', status: 'ALIGNED' },
+        { pair: 'Phase Continuity', name: 'Frame Boundary Phase Drift', desc: 'Minor Codec Phase Jitter (< 0.22)', status: 'ALIGNED' },
+      ],
     },
     clone_v1: {
       name: 'Synthetic Voice Clone (Vishing)',
@@ -106,6 +148,27 @@ export const App: React.FC = () => {
       snr: 32.0,
       bafvScore: 0.82,
       isBandLimited: false,
+      pcvsScore: 0.91,
+      mahalanobisDist: 6.82,
+      rpci: {
+        status: 'BREATH_CUE_MISSING_OR_AMBIGUOUS',
+        breath_delay_ms: 0.0,
+        explanation: 'Instantaneous electronic energy onset without pre-voicing airflow',
+      },
+      ptva: {
+        ptva_score: 0.81,
+        f1_max_velocity_hz_s: 14800.0,
+        f2_max_velocity_hz_s: 21500.0,
+        speed_limit_violation: true,
+      },
+      pairs: [
+        { pair: 'F0 ↔ F1', name: 'Glottal / Pharyngeal Coupling', desc: 'Uncoupled Glottal-Pharyngeal (r = 0.12)', status: 'DEVIATION' },
+        { pair: 'F1 ↔ F2', name: 'Tongue Height / Backness Transition', desc: 'Lag Anomaly / Disconnected (r = 0.18)', status: 'DEVIATION' },
+        { pair: 'F2 ↔ F3', name: 'Oral / Retroflex Resonator', desc: 'Missing Vocal Dynamics (r = 0.14)', status: 'DEVIATION' },
+        { pair: 'Energy ↔ Pitch', name: 'Subglottal Pressure Covariance', desc: 'Vocoder Flat-Energy Lock (r = 0.08)', status: 'DEVIATION' },
+        { pair: 'Breath ↔ Onset', name: 'RPCI: Respiration-to-Voicing', desc: 'Instantaneous Electronic Onset', status: 'DEVIATION' },
+        { pair: 'Phase Continuity', name: 'Frame Boundary Phase Drift', desc: 'Vocoder Frame Phase Hop (> 0.76)', status: 'DEVIATION' },
+      ],
     },
   };
 
@@ -183,7 +246,31 @@ export const App: React.FC = () => {
           pitch_f0: { f0_mean_hz: 142.5, jitter_percent: preset.type === 'spoof' ? 0.08 : 0.95 },
           formants: { f1_hz: 710, f2_hz: 1240, f3_hz: 2580 },
           voice_quality: { shimmer_percent: preset.type === 'spoof' ? 0.02 : 2.4, hnr_db: 22.0 },
+          pcta_engine: {
+            pcvs_score: preset.pcvsScore,
+            mahalanobis_distance: preset.mahalanobisDist,
+            rpci: preset.rpci,
+            ptva: preset.ptva,
+            trajectory_pairs: preset.pairs,
+          },
         },
+        open_set_detector: preset.type === 'spoof'
+          ? {
+              detected_class: 'KNOWN_SYNTHETIC_GENERATOR',
+              attack_type: 'ElevenLabs-Multilingual-v2',
+              generator_family: 'Autoregressive-Diffusion',
+              is_zero_day_unknown: false,
+              description: 'High-fidelity commercial multi-speaker neural voice clone',
+              open_set_confidence: 0.94,
+            }
+          : {
+              detected_class: 'BONAFIDE_HUMAN_SPEECH',
+              attack_type: 'NONE',
+              generator_family: 'HUMAN_BIOLOGY',
+              is_zero_day_unknown: false,
+              description: 'Natural speech within empirical human manifold',
+              open_set_confidence: 0.98,
+            },
         overall_recommendation: finalAction,
       };
 
@@ -677,9 +764,56 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Open-Set Generator Detector Verdict (FR-04 & Phase P4) */}
+              {scanResult.open_set_detector && (
+                <div
+                  className="glass-panel"
+                  style={{
+                    padding: '14px 20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: scanResult.open_set_detector.detected_class === 'BONAFIDE_HUMAN_SPEECH'
+                      ? 'rgba(16, 185, 129, 0.08)'
+                      : 'rgba(244, 63, 94, 0.1)',
+                    border: `1px solid ${scanResult.open_set_detector.detected_class === 'BONAFIDE_HUMAN_SPEECH' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.3)'}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <ShieldAlert size={20} color={scanResult.open_set_detector.detected_class === 'BONAFIDE_HUMAN_SPEECH' ? '#34d399' : '#fb7185'} />
+                    <div>
+                      <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+                        Open-Set Generator Detector (FR-04 LOGO Analysis)
+                      </div>
+                      <div className="mono" style={{ fontSize: '0.92rem', fontWeight: 700, color: '#fff', marginTop: '2px' }}>
+                        {scanResult.open_set_detector.detected_class === 'BONAFIDE_HUMAN_SPEECH' ? (
+                          <span style={{ color: '#34d399' }}>BONAFIDE_HUMAN_SPEECH • Empirical Biological Manifold</span>
+                        ) : scanResult.open_set_detector.is_zero_day_unknown ? (
+                          <span style={{ color: '#fb7185' }}>UNKNOWN_ZERO_DAY_SYNTHETIC • Unseen Architecture Detected</span>
+                        ) : (
+                          <span style={{ color: '#fb7185' }}>
+                            {scanResult.open_set_detector.attack_type} ({scanResult.open_set_detector.generator_family})
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        {scanResult.open_set_detector.description}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Fingerprint Match</div>
+                    <div className="mono" style={{ fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
+                      {((scanResult.open_set_detector.open_set_confidence || 0.95) * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PCTA Coupling Heat-Map Matrix (FR-11 & Scope Section 7) */}
               <div className="glass-panel" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h3 style={{ fontSize: '0.92rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Activity size={16} color="var(--color-cyan)" /> PCTA Trajectory Coupling Heat-Map (FR-11)
@@ -688,42 +822,90 @@ export const App: React.FC = () => {
                       Physiological Coupled-Trajectory Analysis: Checks whether physical vocal-tract measurements move synchronously as human biology dictates.
                     </p>
                   </div>
-                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--color-primary)' }}>
-                    Adaptive Threshold &tau;<sub>L</sub>(a): <strong>{(0.35 * (1 - 0.4 * Math.min(1, Math.log(1 + amountInr/10000) / Math.log(1 + 1000000/10000)))).toFixed(3)}</strong>
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--color-primary)' }}>
+                      Adaptive Threshold &tau;<sub>L</sub>(a): <strong>{(0.35 * (1 - 0.4 * Math.min(1, Math.log(1 + amountInr/10000) / Math.log(1 + 1000000/10000)))).toFixed(3)}</strong>
+                    </span>
+                  </div>
                 </div>
 
+                {/* PCTA Sub-Module Diagnostic Summary (Scope Section 7) */}
+                {scanResult.biomechanical_features?.pcta_engine && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '10px',
+                      marginBottom: '14px',
+                      padding: '10px 14px',
+                      background: 'rgba(0,0,0,0.25)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Mahalanobis Manifold Distance (D<sub>M</sub>)</div>
+                      <div className="mono" style={{ fontSize: '0.85rem', fontWeight: 700, color: (scanResult.biomechanical_features.pcta_engine.mahalanobis_distance || 1.0) > 3.0 ? 'var(--color-rose)' : 'var(--color-emerald)' }}>
+                        {scanResult.biomechanical_features.pcta_engine.mahalanobis_distance || 1.15} &sigma;
+                        <span style={{ fontSize: '0.66rem', fontWeight: 400, marginLeft: '6px', color: 'var(--text-dim)' }}>
+                          {(scanResult.biomechanical_features.pcta_engine.mahalanobis_distance || 1.0) > 3.0 ? '(Out-of-Manifold)' : '(Within Normal Manifold)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>RPCI Respiration Coupling</div>
+                      <div className="mono" style={{ fontSize: '0.78rem', fontWeight: 600, color: '#38bdf8' }}>
+                        {scanResult.biomechanical_features.pcta_engine.rpci?.status === 'NORMAL_RESPIRATION_COUPLING' ? 'Natural Inhalation' : 'Missing / Ambiguous'}
+                        <span style={{ fontSize: '0.66rem', display: 'block', color: 'var(--text-dim)', fontWeight: 400 }}>
+                          Rule: Missing breath is tolerated, never penalized
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>PTVA Articulator Speed Limits</div>
+                      <div className="mono" style={{ fontSize: '0.78rem', fontWeight: 600, color: scanResult.biomechanical_features.pcta_engine.ptva?.speed_limit_violation ? 'var(--color-rose)' : 'var(--color-emerald)' }}>
+                        {scanResult.biomechanical_features.pcta_engine.ptva?.speed_limit_violation ? 'Speed Limit Exceeded' : 'Biomechanical Limits Respected'}
+                        <span style={{ fontSize: '0.66rem', display: 'block', color: 'var(--text-dim)', fontWeight: 400 }}>
+                          Max |dF1/dt| &le; 8kHz/s • |dF2/dt| &le; 12kHz/s
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                  {[
-                    { pair: 'F0 ↔ F1', name: 'Glottal / Pharyngeal Coupling', normal: 'Natural (r = 0.84)', spoof: 'Uncoupled (r = 0.12)' },
-                    { pair: 'F1 ↔ F2', name: 'Tongue Height / Backness Transition', normal: 'Natural (r = 0.79)', spoof: 'Lag Anomaly (r = 0.28)' },
-                    { pair: 'F2 ↔ F3', name: 'Oral / Retroflex Resonator', normal: 'Natural (r = 0.72)', spoof: 'Missing Dynamics (r = 0.19)' },
-                    { pair: 'Breath ↔ Onset', name: 'RPCI: Respiration-to-Voicing', normal: 'Normal Coupling (48ms)', spoof: 'Missing / Instant Onset' },
-                    { pair: 'Energy ↔ Pitch', name: 'Subglottal Pressure Covariance', normal: 'Natural (r = 0.81)', spoof: 'Flat Vocoder Lock' },
-                    { pair: 'Phase Continuity', name: 'Frame Boundary Phase Drift', normal: 'Continuous (< 0.1 rad)', spoof: 'Vocoder Phase Hop (> 0.8 rad)' },
-                  ].map((item, idx) => {
-                    const isSpoof = scanResult.overall_recommendation === 'HOLD_FOR_REVIEW' || scanResult.biomechanical_features.bafv_anomaly_score > 0.4;
+                  {(scanResult.biomechanical_features?.pcta_engine?.trajectory_pairs || [
+                    { pair: 'F0 ↔ F1', name: 'Glottal / Pharyngeal Coupling', desc: 'Natural Glottal Coupling (r = 0.84)', status: 'ALIGNED' },
+                    { pair: 'F1 ↔ F2', name: 'Tongue Height / Backness Transition', desc: 'Physiological Trajectory (r = 0.79)', status: 'ALIGNED' },
+                    { pair: 'F2 ↔ F3', name: 'Oral / Retroflex Resonator', desc: 'Natural Dynamic Resonators (r = 0.72)', status: 'ALIGNED' },
+                    { pair: 'Energy ↔ Pitch', name: 'Subglottal Pressure Covariance', desc: 'Natural Lung-Vocal Fold Covariance (r = 0.81)', status: 'ALIGNED' },
+                    { pair: 'Breath ↔ Onset', name: 'RPCI: Respiration-to-Voicing', desc: 'Normal Breath Coupling (48ms)', status: 'ALIGNED' },
+                    { pair: 'Phase Continuity', name: 'Frame Boundary Phase Drift', desc: 'Continuous Acoustic Phase (< 0.08)', status: 'ALIGNED' },
+                  ]).map((item: any, idx: number) => {
+                    const isDev = item.status === 'DEVIATION' || scanResult.overall_recommendation === 'HOLD_FOR_REVIEW';
                     return (
                       <div
                         key={idx}
                         style={{
                           padding: '10px 12px',
                           borderRadius: '8px',
-                          background: isSpoof ? 'rgba(244, 63, 94, 0.1)' : 'rgba(16, 185, 129, 0.08)',
-                          border: `1px solid ${isSpoof ? 'rgba(244, 63, 94, 0.25)' : 'rgba(16, 185, 129, 0.2)'}`,
+                          background: isDev ? 'rgba(244, 63, 94, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                          border: `1px solid ${isDev ? 'rgba(244, 63, 94, 0.25)' : 'rgba(16, 185, 129, 0.2)'}`,
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="mono" style={{ fontSize: '0.76rem', fontWeight: 700, color: isSpoof ? '#fb7185' : '#34d399' }}>
+                          <span className="mono" style={{ fontSize: '0.76rem', fontWeight: 700, color: isDev ? '#fb7185' : '#34d399' }}>
                             {item.pair}
                           </span>
-                          <span className="mono" style={{ fontSize: '0.68rem', color: isSpoof ? '#fb7185' : '#34d399' }}>
-                            {isSpoof ? 'DEVIATION' : 'ALIGNED'}
+                          <span className="mono" style={{ fontSize: '0.68rem', color: isDev ? '#fb7185' : '#34d399' }}>
+                            {item.status || (isDev ? 'DEVIATION' : 'ALIGNED')}
                           </span>
                         </div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>{item.name}</div>
                         <div className="mono" style={{ fontSize: '0.72rem', color: '#fff', marginTop: '4px' }}>
-                          {isSpoof ? item.spoof : item.normal}
+                          {item.desc || (isDev ? 'Uncoupled Trajectory' : 'Synchronous Trajectory')}
                         </div>
                       </div>
                     );
