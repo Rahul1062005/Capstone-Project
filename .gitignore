@@ -37,6 +37,10 @@ dist/
 # Java / Gradle
 .gradle/
 build/
+bin/
+backend/bin/
+backend/build/
+backend/.gradle/
 !backend-spring/build.gradle
 backend-spring/build/
 backend-spring/.gradle/

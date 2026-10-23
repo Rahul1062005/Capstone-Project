@@ -170,6 +170,6 @@ class AudioProcessor:
             "snr_db": round(float(snr_db), 2),
             "clipping_ratio": round(clipping_ratio, 4),
             "channel_confidence": round(channel_confidence, 3),
-            "is_band_limited_8khz": is_band_limited,
+            "is_band_limited_8khz": bool(is_band_limited),
             "quality_warnings": warnings,
         }

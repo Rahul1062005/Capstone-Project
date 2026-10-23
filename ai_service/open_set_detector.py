@@ -175,8 +175,8 @@ class TelephonyChannelConfidenceSystem:
             "channel_confidence": channel_conf,
             "detected_codec": detected_codec,
             "quality_grade": quality_grade,
-            "is_low_confidence": channel_conf < 0.50,
+            "is_low_confidence": bool(channel_conf < 0.50),
             "snr_db": round(float(snr_db), 1),
-            "is_band_limited_8khz": is_band_limited_8khz,
+            "is_band_limited_8khz": bool(is_band_limited_8khz),
             "packet_loss_ratio": round(float(packet_loss_ratio), 3),
         }

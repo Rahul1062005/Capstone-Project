@@ -278,13 +278,13 @@ class BiomechanicalFeatureExtractor:
 
         # Check biomechanical violations:
         # Exceeding physical muscle limits indicates vocoder synthesis splicing or pitch-shifting discontinuity
-        violation_1 = max_v1 > self.F1_MAX_VELOCITY_HZ_S
-        violation_2 = max_v2 > self.F2_MAX_VELOCITY_HZ_S
-        speed_limit_violation = violation_1 or violation_2
+        violation_1 = bool(max_v1 > self.F1_MAX_VELOCITY_HZ_S)
+        violation_2 = bool(max_v2 > self.F2_MAX_VELOCITY_HZ_S)
+        speed_limit_violation = bool(violation_1 or violation_2)
 
         # Check unnatural over-smoothing (common in flow-matching / diffusion models)
         mean_v1 = float(np.mean(v1)) if len(v1) > 0 else 0.0
-        over_smoothed = mean_v1 < 80.0 and np.std(f1_traj) < 15.0
+        over_smoothed = bool(mean_v1 < 80.0 and float(np.std(f1_traj)) < 15.0)
 
         ptva_score = 0.10
         if speed_limit_violation:
@@ -293,7 +293,7 @@ class BiomechanicalFeatureExtractor:
             ptva_score = 0.65
 
         return {
-            "ptva_score": round(ptva_score, 3),
+            "ptva_score": round(float(ptva_score), 3),
             "f1_max_velocity_hz_s": round(max_v1, 1),
             "f2_max_velocity_hz_s": round(max_v2, 1),
             "speed_limit_violation": speed_limit_violation,
