@@ -1,139 +1,141 @@
-# BAFV-PCTA: AI Deepfake & Synthetic Audio Detection System for Bank Cyber-Fraud
-### Voice-Clone Fraud Shield: Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis
-> **SIH Domain / Theme:** Cybersecurity & FinTech  
-> **Status:** Phase 1 (Define) & Phase 2 (Baseline) Completed  
-> **Intended Use:** Student research prototype and demonstration; advisory support for bank fraud analysts (not for production banking use).
+# VoiceShield (BAFV-PCTA): AI Deepfake & Voice-Clone Fraud Shield
+
+### Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis
+
+> **Live Demo:** [https://voiceshield-fintech.vercel.app](https://voiceshield-fintech.vercel.app)  
+> **SIH Problem Alignment:** `SIH26104` — Cybersecurity & FinTech  
+> **Status:** Phases 1–6 Complete & Live Deployed · Phase 7 (Large-Scale Dataset Training & Viva Evaluation) Ready  
+> **Intended Use:** Academic research prototype and advisory decision-support console for bank fraud analysts (not for autonomous production account freezes).
 
 ---
 
-## 1. Problem Formulation & Novelty
+## 1. Problem Formulation & Solution
 
-### The Real-World Threat: Vishing & Executive Impersonation
-Scammers use AI voice cloners and neural text-to-speech (TTS) engines to sound like family members or corporate executives, convincing banks and victims to authorize high-value wire transfers over the phone (Vishing attacks).
+### The Threat: Vishing & Voice-Clone Impersonation
+Fraudsters use neural text-to-speech (TTS) and few-shot voice cloning tools to impersonate account holders or executives over phone channels, tricking victims and call agents into authorizing high-value transfers. Traditional passive detectors struggle when audio passes through lossy 8 kHz telephone codecs or comes from unseen generative vocoders.
 
-### The BAFV-PCTA Solution
-Human vocal production creates physical acoustics—subtle breathing pauses, glottal micro-perturbations (jitter/shimmer), and continuous vocal-tract resonance transitions ($F_1, F_2, F_3$ formants)—that generative AI models miss or distort. 
+### The BAFV-PCTA Architecture
+Human speech is constrained by physical vocal-tract biomechanics—glottal micro-perturbations (jitter/shimmer), continuous formant resonances ($F_1, F_2, F_3$), and subglottal airflow coordination—which frame-by-frame neural vocoders often distort.
 
-BAFV-PCTA introduces:
-1. **Windowed Passive Anti-Spoofing Baseline:** Real-time 2.0 s windows with 0.5 s hop analyzing spectro-temporal anomalies and channel quality.
-2. **Transaction-Bound Spoken Challenge (TB-PC):** When caller risk is ambiguous (`VERIFY`), the system issues an ephemeral, keyed challenge derived from transaction details and a single-use nonce to defeat replay attacks and expose synthesis delay.
-3. **Multimodal Risk Fusion Engine:** Combines audio evidence, channel confidence index, and simulated transaction context into an analyst recommendation: `ALLOW`, `VERIFY`, or `HOLD FOR REVIEW`.
+VoiceShield combines three layers:
+1. **Passive Acoustic & Physiological Analysis (`ai_service/`):**
+   - **Baseline Detector:** PyTorch spectro-temporal CNN + attentive statistical pooling (`SpectroTemporalBaselineNetwork`), with automatic checkpoint loading from `models/aasist_baseline.pt`.
+   - **BAFV & PCTA Engine:** Extracts pitch (`F0`), jitter, shimmer, HNR, LPC formants (`F1–F3`), **PCVS** (6 coupled trajectory pairs + Mahalanobis manifold distance), **RPCI**, and **PTVA** articulator velocity bounds.
+   - **Open-Set Detector & Telephony Confidence (`TCS`):** Distinguishes known generator families vs. unseen zero-day synthetic audio and measures 8 kHz narrowband channel degradation.
+2. **Dynamic Risk Fusion Engine (`DRFE`) & Spoken Challenge (`TB-PC`):**
+   - Fuses voice spoof probability, PCTA score, channel confidence $C$, and transaction context (INR amount, new beneficiary, velocity) using an amount-aware adaptive threshold $\tau_L(a)$, low-confidence channel guard, and 3-of-5 persistence rule into `ALLOW`, `VERIFY`, or `HOLD_FOR_REVIEW`.
+   - Issues ephemeral 60-second **HMAC-SHA256** spoken challenges tied to transaction details and single-use nonces.
+3. **Enterprise Gateway & Operations Console (`backend/` + `frontend/`):**
+   - **Java 21 Spring Boot Gateway:** Proxies analysis to FastAPI, generates cryptographic challenges, and records a **SHA-256 hash-chained audit ledger** with zero raw audio retention and GDPR/DPDP metadata purge (`DELETE /api/audit/records/{id}`).
+   - **React + TypeScript Console:** Light/Dark institutional analyst dashboard featuring Call Inspector, 2.0s Windowed Risk Timeline, Voice Challenge simulator, and Audit Ledger.
 
 ---
 
-## 2. Completed Milestones (Phase 1 & Phase 2)
+## 2. Live Deployment
 
-As specified in the Project Scope Document, work has strictly progressed through **Phase 1** and **Phase 2**:
+| Component | Hosting | URL / Notes |
+|:---|:---|:---|
+| **Frontend Console** | Vercel | [https://voiceshield-fintech.vercel.app](https://voiceshield-fintech.vercel.app) |
+| **Spring Boot Gateway** | Render (Docker) | [Health Check](https://bafv-pcta-gateway.onrender.com/health) |
+| **Python AI Microservice** | Render (Docker, CPU PyTorch) | [Health Check](https://bafv-pcta-ai.onrender.com/health) |
 
-### Phase 1: Define (Weeks 1–2) — Exit Check: Requirements Doc & Data Indexed ✅
-- [x] **Project Requirements & Specs:** Documented in [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md), tracking functional requirements (FR-01 through FR-13), Non-functional requirements, and the mathematical risk engine.
-- [x] **SIH Verification & Alignment:** Documented in [`docs/SIH_PROBLEM_ALIGNMENT.md`](docs/SIH_PROBLEM_ALIGNMENT.md) mapping threat models, patent core, and prototype boundaries.
-- [x] **Licensing & Academic Attribution:** Documented in [`docs/LICENSES_AND_ATTRIBUTION.md`](docs/LICENSES_AND_ATTRIBUTION.md) attributing ASVspoof 2019, In-the-Wild, AASIST, PyTorch, Librosa, and Whisper.
-- [x] **Dataset Indexer & Validator:** Automated in [`scripts/index_data.py`](scripts/index_data.py) with RIFF header inspection, SHA-256 fingerprinting, and generation of `data/manifests/dataset_manifest.json` and `data/manifests/dataset_manifest.csv`.
-- [x] **Data Fixtures & Protocols:** Generated benchmark dataset in `data/test_samples/` featuring genuine human speech, synthetic clones, and 8 kHz telephone degraded audio.
+> **Free-Tier Cold Start Note:** Both Render backend services sleep after ~15 minutes of inactivity. On the first visit after idle, please allow 45–60 seconds for the backend containers to wake up.
 
-### Phase 2: Baseline (Weeks 3–4) — Exit Check: Real Model Output ✅
-- [x] **Audio Preprocessor & Validator (`ai_service/audio_processor.py`):**
-  - Safe decoding and validation (FR-01: content verification, rejects corrupted files).
-  - Normalization and resampling to 16 kHz mono float32 (FR-02).
-  - Channel metrics calculation: SNR estimation, clipping ratio, and 8 kHz telephone band-limiting detection.
-  - Fail-secure error handling (FR-12).
-- [x] **Pretrained Baseline Detector (`ai_service/baseline_detector.py`):**
-  - Spectro-temporal attention network (`AASIST-ResNet-Baseline` v1.2.0-baseline).
-  - Real tensor forward inference with raw logits and calibrated spoof probability (FR-03).
-  - Score interpretation (`ALLOW`, `VERIFY`, `HOLD_FOR_REVIEW`), quality warnings, and probabilistic disclaimer (FR-04).
-  - Sub-25ms inference latency tracking on standard CPU (SC6).
-- [x] **Failure Inspection & Degradation Analysis (`scripts/inspect_baseline_failures.py`):**
-  - Evaluates performance across clean vs 8 kHz telephone channel degradation (SC3, SC4).
-  - Full report generated at [`docs/PHASE_2_BASELINE_REPORT.md`](docs/PHASE_2_BASELINE_REPORT.md).
-
-### Phase 3: AI API (Weeks 5–6) — Exit Check: API Tests Pass ✅
-- [x] **Voice Activity Detection (`ai_service/vad.py`):** Energy and spectral flux VAD filtering silence and background noise.
-- [x] **Biomechanical Feature Extractor (`ai_service/bafv_features.py`):** F0 jitter, LPC formants (F1, F2, F3), shimmer, HNR, and anomaly scoring.
-- [x] **Windowed Stream Analyzer (`ai_service/windowed_analyzer.py`):** 2.0 s sliding windows with 0.5 s hop (FR-05) and risk timeline smoothing ($S_t$).
-- [x] **FastAPI Microservice (`ai_service/api.py`):** REST endpoints for `/health`, `/api/v1/detect/file`, `/api/v1/detect/window`, and live `/api/v1/ws/stream` WebSocket.
-- [x] **API Test Suite:** Automated contract and integration tests in `tests/test_api.py`.
-
-### Phase 4: Risk Engine (Weeks 7–8) — Exit Check: Scenario Tests Pass (SC7) ✅
-- [x] **Multimodal Risk Fusion (`ai_service/risk_engine.py`):**
-  - Mathematical logit formulation: $\text{logit}(s) = b_0 + C \cdot (b_1 R_v + b_2 P_{pcta} + b_3 R_s) + b_4 R_c + b_5 R_t + b_6 (R_v \cdot R_t)$.
-  - Exponential temporal smoothing: $S_t = 0.6 \cdot S_{t-1} + 0.4 \cdot s_t$.
-  - Low-confidence guard (telephone/bad line cannot unilaterally hold on voice evidence alone).
-  - Persistence rule ($\ge 3$ holds in last 5 windows, unless $R_t > 0.9$).
-  - Spoken challenge outcome matrix (`PASS` downgrades, `FAIL` holds, `INCONCLUSIVE` retries).
-- [x] **Automated Scenario Tests:** 16 passing unit tests across low-risk, high-risk, degraded line, persistence, and matrix scenarios.
-
-### Phase 5: TB-PC Service (Weeks 6–8) — Exit Check: Challenge Round Trip Works (SC5) ✅
-- [x] **Cryptographic Challenge Generation (`ai_service/tb_pc_verifier.py` & `backend/server.js`):**
-  - Ephemeral HMAC-SHA256 derived phrase tied to transaction amount and single-use 60-second nonce (FR-09).
-- [x] **Multi-Dimensional Response Scoring:**
-  - Evaluates digit match, caller latency cadence (400ms–2400ms biological vs >2500ms on-demand clone lag or <200ms stolen replay), syllabic articulation rate, and biomechanical stability (FR-10).
-  - 100% passing tests in `tests/test_tb_pc.py`.
-
-### Phase 6: Fraud Monitoring Portal & Gateway (Weeks 5–7) — Exit Check: Upload-to-Result Works ✅
-- [x] **Enterprise Spring Boot Backend (`backend/`):**
-  - High-performance Java 21 Spring Boot gateway proxying to FastAPI.
-  - Ephemeral HMAC-SHA256 challenge generation and single-use nonce tracking.
-  - Cryptographic hash-chained audit logging anchor (`prev_hash`, `record_hash`) storing feature metadata with zero raw audio persistence.
-  - Metadata purge endpoint (`DELETE /api/audit/records/{id}`) complying with FR-11 privacy rights.
-- [x] **React + Vite + TypeScript Dashboard (`frontend/src/App.tsx`):**
-  - Sleek FinTech dark glassmorphism portal.
-  - Live sliding-window risk timeline graph with Recharts (FR-05).
-  - Interactive TB-PC challenge simulator with 60-second countdown and per-check score diagnostics.
-  - Hash-chained audit trail visualizer.
-  - Microphone recording consent modal (FR-13).
+Full deployment instructions are in [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md).
 
 ---
 
 ## 3. Technology Stack
 
-| Layer | Technology | Status |
-|:---|:---|:---:|
-| **Frontend Portal** | React + Vite + TypeScript, Recharts (Fraud Dashboard) | ✅ Active (Port 5173) |
-| **Backend Gateway** | Java 21 + Spring Boot 3.4 (HMAC Challenges & Audit Ledger) | ✅ Active (Port 5000) |
-| **Audio & AI Engine** | Python 3.13, PyTorch 2.14, FastAPI, Librosa, SciPy | ✅ Active (Port 8000) |
-| **Testing** | pytest (19 automated tests passing) | ✅ Active |
+| Layer | Technology |
+|:---|:---|
+| **Frontend Portal** | React 19, Vite, TypeScript, Recharts, Lucide Icons (Light & Matte Dark themes) |
+| **Backend Gateway** | Java 21, Spring Boot 3.4.3, Gradle 9.3.1 (HMAC-SHA256 Challenges & SHA-256 Audit Ledger) |
+| **Audio & AI Engine** | Python, PyTorch, FastAPI, Uvicorn, Librosa, SciPy, SoundFile, scikit-learn |
+| **Automated Checks** | `pytest` (23 tests), Gradle JUnit (`test`), `tsc -b && vite build`, `oxlint` |
 
 ---
 
-## 4. Quickstart: Running the Full Stack
+## 4. Repository Structure
 
-### 1. Launch Python AI Microservice (Port 8000)
+```text
+├── ai_service/                 # FastAPI microservice, PyTorch baseline, BAFV-PCTA, OGD/TCS, DRFE, TB-PC
+├── backend/                    # Java 21 Spring Boot gateway, HMAC challenges, SHA-256 audit ledger, Dockerfile
+├── frontend/                   # React + Vite + TypeScript analyst workstation, sample WAVs, vercel.json
+├── scripts/                    # Dataset indexing, baseline inspection, PyTorch training & manifold calibration
+├── tests/                      # 23 automated pytest unit & FastAPI integration tests
+├── data/                       # Indexed synthetic benchmark WAVs, manifests, baseline predictions
+├── docs/                       # Specifications, SIH alignment, baseline report, training & deployment guides
+├── render.yaml                 # Render Blueprint for bafv-pcta-ai and bafv-pcta-gateway
+├── requirements.txt            # Python dependencies
+└── conftest.py                 # Pytest path and Numba cache configuration
+```
+
+---
+
+## 5. Quickstart: Running Locally
+
+Open three terminals in the repository root:
+
+### 1. Launch Python AI Microservice (Port `8000`)
 ```bash
+pip install -r requirements.txt
 uvicorn ai_service.api:app --reload --port 8000
 ```
 
-### 2. Launch Spring Boot Backend Gateway (Port 5000)
+### 2. Launch Spring Boot Gateway (Port `5000`)
 ```bash
 cd backend
 .\gradlew.bat bootRun
 ```
 
-### 3. Launch React Frontend Portal (Port 5173)
+### 3. Launch React Frontend Console (Port `5173`)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 4. Run Automated Tests
+Open `http://localhost:5173`. Sample `.wav` files for manual upload testing (including `corrupted_payload.wav` for FR-13 fail-secure verification) are in `data/test_samples/`.
+
+### 4. Run Automated Tests & Builds
 ```bash
+# Python AI & API tests (23 tests)
 pytest -v
+
+# Spring Boot backend build & tests
+.\backend\gradlew.bat -p backend test --no-daemon
+
+# Frontend type-check, production build, and lint
+npm --prefix frontend run build
+npm --prefix frontend run lint
 ```
 
 ---
 
-## 5. Scope Roadmap
+## 6. Model Training & Calibration (Phase 7)
 
-- [x] **Phase 1: Define (Weeks 1–2):** Requirements, SIH verification, licences, repo, data indexing.
-- [x] **Phase 2: Baseline (Weeks 3–4):** Pretrained baseline model inference, failure inspection, degradation analysis.
-- [x] **Phase 3: AI API (Weeks 5–6):** FastAPI streaming service, VAD, 2 s windowed inference (0.5 s hop).
-- [x] **Phase 4: Risk Engine (Weeks 7–8):** Transaction contextual fusion, low-confidence guard, decision matrix.
-- [x] **Phase 5: TB-PC (Weeks 6–8):** HMAC-SHA256 spoken challenge derivation, cadence timing, and response verification.
-- [x] **Phase 6: Dashboard & Audit (Weeks 5–7):** MERN portal, live risk timeline, hash-chained audit trail.
-- [ ] **Phase 7: Evaluation & Viva (Weeks 8–12):** Cross-dataset evaluation, demonstration video, viva presentation slides.
+By default, if no trained checkpoint is present in `models/aasist_baseline.pt`, `BaselineAntiSpoofDetector` falls back to deterministic seed initialization (`weights_source: "untrained_seed_init"` on `/health`) so the full pipeline can be demonstrated safely without fabricated predictions.
+
+To train on real datasets (**ASVspoof 2019 LA**, **In-the-Wild**, or custom `bonafide/` + `spoof/` folders) and calibrate the BAFV/Open-Set distributions:
+- Training script: [`scripts/train_detector.py`](scripts/train_detector.py)
+- Calibration script: [`scripts/calibrate_manifold.py`](scripts/calibrate_manifold.py)
+- Step-by-step Colab & local instructions: [`docs/TRAINING_AND_COLAB_GUIDE.md`](docs/TRAINING_AND_COLAB_GUIDE.md)
 
 ---
 
-## 6. License
-Released under the [MIT License](LICENSE). See [docs/LICENSES_AND_ATTRIBUTION.md](docs/LICENSES_AND_ATTRIBUTION.md) for third-party attributions.
+## 7. Roadmap & Documentation
+
+- [x] **Phase 1: Define** — Requirements, SIH alignment, licensing, data indexing ([`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md), [`docs/SIH_PROBLEM_ALIGNMENT.md`](docs/SIH_PROBLEM_ALIGNMENT.md)).
+- [x] **Phase 2: Baseline** — Audio validation, baseline detector, degradation inspection ([`docs/PHASE_2_BASELINE_REPORT.md`](docs/PHASE_2_BASELINE_REPORT.md)).
+- [x] **Phase 3: AI API & PCTA** — FastAPI REST/WebSocket service, VAD, 2.0s windowed analysis, BAFV-PCTA, OGD, TCS.
+- [x] **Phase 4: Risk Engine** — DRFE multimodal fusion, amount-aware adaptive threshold, low-confidence guard, persistence rule.
+- [x] **Phase 5: TB-PC Challenge** — HMAC-SHA256 spoken challenge generation and latency/articulation/content verification.
+- [x] **Phase 6: Enterprise Gateway, UI & Cloud Deployment** — Java 21 Spring Boot gateway, SHA-256 audit ledger, Light/Dark workstation UI, live on Vercel & Render.
+- [ ] **Phase 7: Evaluation & Viva** — Train weights on real benchmark datasets (ASVspoof 2019 LA / In-the-Wild), cross-dataset EER/min-tDCF evaluation, demo video, and viva slides.
+
+---
+
+## 8. License
+
+Released under the [MIT License](LICENSE). See [`docs/LICENSES_AND_ATTRIBUTION.md`](docs/LICENSES_AND_ATTRIBUTION.md) for dataset and library attributions.
