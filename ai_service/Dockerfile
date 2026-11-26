@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt ./
 
-# Install CPU-only PyTorch wheels first to avoid multi-GB CUDA downloads and OOM on 512MB builds
+# Install CPU-only PyTorch wheel first (skip unused torchaudio to fit 512MB RAM limits)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     grep -vE '^(torch|torchaudio)' requirements.txt | pip install --no-cache-dir -r /dev/stdin
 
 COPY ai_service ./ai_service
@@ -22,6 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
     OPENBLAS_NUM_THREADS=1 \
     OMP_NUM_THREADS=1 \
     MKL_NUM_THREADS=1 \
+    NUMBA_DISABLE_JIT=1 \
     NUMBA_CACHE_DIR=/tmp/numba_cache \
     PORT=8000
 

@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -101,19 +102,9 @@ async def health_check() -> HealthResponse:
     )
 
 
-@app.post("/api/v1/detect/file")
-async def detect_audio_file(file: UploadFile = File(...)) -> Dict[str, Any]:
-    """Upload audio file, validate, perform windowed analysis, and return timeline (FR-01 through FR-05)."""
+def _analyze_file_sync(filename: Optional[str], content: bytes) -> Dict[str, Any]:
+    """Run synchronous audio decoding, inference, BAFV-PCTA, and timeline off the event loop."""
     start_total = time.perf_counter()
-
-    # Read uploaded bytes safely
-    try:
-        content = await file.read()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read upload payload: {str(exc)}",
-        )
 
     # Validate and preprocess (FR-01, FR-02, FR-12)
     try:
@@ -156,7 +147,7 @@ async def detect_audio_file(file: UploadFile = File(...)) -> Dict[str, Any]:
     total_processing_ms = (time.perf_counter() - start_total) * 1000.0
 
     return {
-        "file_name": file.filename,
+        "file_name": filename,
         "processing_latency_ms": round(total_processing_ms, 2),
         "channel_metadata": quality_meta,
         "telephony_confidence": tcs_meta,
@@ -171,6 +162,20 @@ async def detect_audio_file(file: UploadFile = File(...)) -> Dict[str, Any]:
     }
 
 
+@app.post("/api/v1/detect/file")
+async def detect_audio_file(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """Upload audio file, validate, perform windowed analysis, and return timeline (FR-01 through FR-05)."""
+    try:
+        content = await file.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read upload payload: {str(exc)}",
+        )
+
+    return await run_in_threadpool(_analyze_file_sync, file.filename, content)
+
+
 @app.post("/api/v1/detect/window")
 async def detect_audio_window(payload: SingleWindowPayload) -> Dict[str, Any]:
     """Evaluate a single 2.0-second streaming window."""
@@ -181,13 +186,14 @@ async def detect_audio_window(payload: SingleWindowPayload) -> Dict[str, Any]:
             detail="Payload must contain at least 8,000 samples (0.5s at 16 kHz).",
         )
 
-    try:
-        prediction = detector.predict(samples_arr)
-        bafv = bafv_extractor.compute_bafv_profile(samples_arr)
+    def _run_window() -> Dict[str, Any]:
         return {
-            "prediction": prediction,
-            "biomechanical_features": bafv,
+            "prediction": detector.predict(samples_arr),
+            "biomechanical_features": bafv_extractor.compute_bafv_profile(samples_arr),
         }
+
+    try:
+        return await run_in_threadpool(_run_window)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 

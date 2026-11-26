@@ -184,8 +184,8 @@ class BiomechanicalFeatureExtractor:
         else:
             shimmer_percent = 0.0
 
-        # Autocorrelation-based HNR estimation
-        corr = np.correlate(waveform, waveform, mode="full")
+        # FFT-based autocorrelation for O(N log N) HNR estimation
+        corr = signal.correlate(waveform, waveform, mode="full", method="fft")
         corr = corr[len(corr) // 2 :]
         min_lag = int(self.sample_rate / 400)
         max_lag = int(self.sample_rate / 65)
@@ -234,19 +234,26 @@ class BiomechanicalFeatureExtractor:
         f2_traj = np.zeros(num_frames)
         f3_traj = np.zeros(num_frames)
         energy_traj = np.sqrt(np.mean(frames ** 2, axis=0) + 1e-8)
-        phase_disp = np.zeros(num_frames)
+        zcr_traj = np.mean(np.abs(np.diff(np.signbit(frames), axis=0)), axis=0) * 0.5
+        hamming_win = np.hamming(frame_len)
 
-        # Estimate trajectory along frames
-        prev_fft = None
+        # Vectorized spectral flux / phase dispersion across all frames
+        fft_mags = np.abs(np.fft.rfft(frames, axis=0))  # [Freq, Frames]
+        phase_disp = np.zeros(num_frames)
+        if num_frames > 1:
+            prev_norms = np.linalg.norm(fft_mags[:, :-1], axis=0) + 1e-6
+            diff_norms = np.linalg.norm(fft_mags[:, 1:] - fft_mags[:, :-1], axis=0)
+            phase_disp[1:] = np.clip(diff_norms / prev_norms, 0.0, 1.0)
+
+        min_l = int(self.sample_rate / 400)
+        max_l = int(self.sample_rate / 70)
+
+        # Estimate pitch & formant trajectory along frames
         for i in range(num_frames):
-            frame = frames[:, i]
-            # RMS energy & zero-crossing rate proxy for voicedness
-            zcr = np.mean(librosa.feature.zero_crossing_rate(frame))
-            if energy_traj[i] > 0.01 and zcr < 0.35:
-                # Approximate local pitch via zero-crossings or peak autocorrelation
+            if energy_traj[i] > 0.01 and zcr_traj[i] < 0.35:
+                frame = frames[:, i]
+                # Local pitch via autocorrelation
                 corr = np.correlate(frame, frame, mode="full")[len(frame) - 1 :]
-                min_l = int(self.sample_rate / 400)
-                max_l = int(self.sample_rate / 70)
                 if len(corr) > max_l:
                     lag = min_l + np.argmax(corr[min_l:max_l])
                     f0_traj[i] = self.sample_rate / lag if lag > 0 else 120.0
@@ -255,7 +262,7 @@ class BiomechanicalFeatureExtractor:
 
                 # Formant approximations using frame LPC
                 try:
-                    a = librosa.lpc(frame * np.hamming(len(frame)), order=12)
+                    a = librosa.lpc(frame * hamming_win, order=12)
                     rts = np.roots(a)
                     rts = rts[np.imag(rts) >= 0.0]
                     frqs = sorted(np.arctan2(np.imag(rts), np.real(rts)) * (self.sample_rate / (2 * np.pi)))
@@ -272,13 +279,6 @@ class BiomechanicalFeatureExtractor:
                 f1_traj[i] = 500.0
                 f2_traj[i] = 1400.0
                 f3_traj[i] = 2500.0
-
-            # Spectral phase / flux dispersion
-            fft_mag = np.abs(np.fft.rfft(frame))
-            if prev_fft is not None:
-                norm_diff = np.linalg.norm(fft_mag - prev_fft) / (np.linalg.norm(prev_fft) + 1e-6)
-                phase_disp[i] = float(np.clip(norm_diff, 0.0, 1.0))
-            prev_fft = fft_mag
 
         return {
             "f0": f0_traj,

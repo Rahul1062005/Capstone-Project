@@ -213,12 +213,11 @@ export const App: React.FC = () => {
           body: formData,
         });
 
+        setBackendStatus('online');
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload.error || payload.detail || `Gateway returned HTTP ${response.status}`);
         }
-
-        setBackendStatus('online');
 
         const aiResult = payload.ai_result || {};
         const riskDecision = payload.risk_decision || {};
