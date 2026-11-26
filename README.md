@@ -1,8 +1,19 @@
+<div align="center">
+
 # VoiceShield (BAFV-PCTA): AI Deepfake & Voice-Clone Fraud Shield
 
-### Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis
+**Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis**
 
-> **Live Demo:** [https://voiceshield-fintech.vercel.app](https://voiceshield-fintech.vercel.app)  
+[![Live Demo](https://img.shields.io/badge/LIVE_DEMO-voiceshield--fintech.vercel.app-0F172A?style=for-the-badge&logo=vercel&logoColor=white)](https://voiceshield-fintech.vercel.app)
+[![React](https://img.shields.io/badge/REACT-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![Spring Boot](https://img.shields.io/badge/SPRING_BOOT-3.4.3_(JAVA_21)-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![FastAPI](https://img.shields.io/badge/FASTAPI-AI_ENGINE-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PyTorch](https://img.shields.io/badge/PYTORCH-DEEPFAKE_DETECTOR-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
+
+### [Launch VoiceShield Live → https://voiceshield-fintech.vercel.app](https://voiceshield-fintech.vercel.app)
+
+</div>
+
 > **SIH Problem Alignment:** `SIH26104` — Cybersecurity & FinTech  
 > **Status:** Phases 1–6 Complete & Live Deployed · Phase 7 (Large-Scale Dataset Training & Viva Evaluation) Ready  
 > **Intended Use:** Academic research prototype and advisory decision-support console for bank fraud analysts (not for autonomous production account freezes).
