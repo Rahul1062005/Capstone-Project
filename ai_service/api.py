@@ -59,7 +59,11 @@ detector = BaselineAntiSpoofDetector()
 bafv_extractor = BiomechanicalFeatureExtractor(sample_rate=16000)
 window_analyzer = WindowedStreamAnalyzer(detector=detector)
 risk_engine = RiskEngine()
-tbpc_verifier = TBPCResponseVerifier(target_sample_rate=16000)
+tbpc_verifier = TBPCResponseVerifier(
+    target_sample_rate=16000,
+    detector=detector,
+    bafv_extractor=bafv_extractor,
+)
 open_set_detector = OpenSetGeneratorDetector()
 tcs_engine = TelephonyChannelConfidenceSystem()
 
@@ -70,6 +74,8 @@ class HealthResponse(BaseModel):
     service: str
     model_name: str
     model_version: str
+    weights_source: str
+    checkpoint_loaded: bool
     device: str
     target_sample_rate: int
     timestamp_utc: float
@@ -87,6 +93,8 @@ async def health_check() -> HealthResponse:
         service="bafv-pcta-ai-service",
         model_name=detector.MODEL_NAME,
         model_version=detector.MODEL_VERSION,
+        weights_source=detector.weights_source,
+        checkpoint_loaded=detector.checkpoint_path is not None,
         device=str(detector.device),
         target_sample_rate=detector.TARGET_SR,
         timestamp_utc=time.time(),

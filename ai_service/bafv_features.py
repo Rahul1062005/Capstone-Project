@@ -18,7 +18,9 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-from typing import Any, Dict, List, Tuple
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import scipy.signal as signal
 import librosa
@@ -31,13 +33,75 @@ class BiomechanicalFeatureExtractor:
     # Reference means for [F0-F1, F1-F2, F2-F3, Energy-F0, Phase Continuity, Formant Dynamics]
     HUMAN_COUPLING_MEAN = np.array([0.82, 0.78, 0.71, 0.80, 0.08, 0.12])
     HUMAN_COUPLING_STD = np.array([0.14, 0.15, 0.16, 0.14, 0.06, 0.08])
+    DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parent.parent / "models" / "calibration_stats.json"
 
     # Biomechanical articulation speed limits (Hz/s) based on tongue/jaw muscle inertia
     F1_MAX_VELOCITY_HZ_S = 8000.0
     F2_MAX_VELOCITY_HZ_S = 12000.0
 
-    def __init__(self, sample_rate: int = 16000) -> None:
+    def __init__(
+        self,
+        sample_rate: int = 16000,
+        calibration_path: Optional[Union[str, Path]] = None,
+    ) -> None:
         self.sample_rate = sample_rate
+        self.human_coupling_mean = self.HUMAN_COUPLING_MEAN.copy()
+        self.human_coupling_std = self.HUMAN_COUPLING_STD.copy()
+        self.calibration_loaded = False
+        self._load_calibration(calibration_path)
+
+    def _load_calibration(self, calibration_path: Optional[Union[str, Path]]) -> None:
+        """Load empirical human coupling mean/std from JSON if present."""
+        env_path = os.environ.get("BAFV_CALIBRATION_PATH")
+        candidate = Path(calibration_path) if calibration_path else (
+            Path(env_path) if env_path else self.DEFAULT_CALIBRATION_PATH
+        )
+        if not candidate.exists() or not candidate.is_file():
+            return
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+            mean = payload.get("human_coupling_mean")
+            std = payload.get("human_coupling_std")
+            if isinstance(mean, list) and len(mean) == 6 and isinstance(std, list) and len(std) == 6:
+                self.human_coupling_mean = np.array(mean, dtype=np.float64)
+                self.human_coupling_std = np.maximum(np.array(std, dtype=np.float64), 1e-3)
+                self.calibration_loaded = True
+        except Exception:
+            pass
+
+    def compute_coupling_vector(self, trajectories: Dict[str, np.ndarray]) -> Tuple[np.ndarray, Dict[str, float]]:
+        """Compute the 6D physiological coupling descriptor vector and raw components."""
+        f0 = trajectories["f0"]
+        f1 = trajectories["f1"]
+        f2 = trajectories["f2"]
+        f3 = trajectories["f3"]
+        energy = trajectories["energy"]
+        phase_disp = trajectories["phase_dispersion"]
+
+        c_f0_f1, _ = self.compute_lagged_cross_correlation(f0, f1)
+        c_f1_f2, _ = self.compute_lagged_cross_correlation(f1, f2)
+        c_f2_f3, _ = self.compute_lagged_cross_correlation(f2, f3)
+        c_e_f0, _ = self.compute_lagged_cross_correlation(energy, f0)
+        phase_continuity_score = float(np.mean(phase_disp)) if len(phase_disp) > 0 else 0.05
+        formant_std = float(np.std(f1)) / 1000.0
+
+        vec = np.array([
+            abs(c_f0_f1),
+            abs(c_f1_f2),
+            abs(c_f2_f3),
+            abs(c_e_f0),
+            phase_continuity_score,
+            formant_std,
+        ], dtype=np.float64)
+        components = {
+            "c_f0_f1": float(c_f0_f1),
+            "c_f1_f2": float(c_f1_f2),
+            "c_f2_f3": float(c_f2_f3),
+            "c_e_f0": float(c_e_f0),
+            "phase_continuity_score": phase_continuity_score,
+            "formant_std": formant_std,
+        }
+        return vec, components
 
     def extract_f0_and_jitter(self, waveform: np.ndarray) -> Dict[str, float]:
         """Estimate fundamental frequency (F0) contour and local pitch jitter."""
@@ -352,25 +416,16 @@ class BiomechanicalFeatureExtractor:
         phase_disp = trajectories["phase_dispersion"]
 
         # 1. Evaluate 6 Physiological Trajectory Pairs
-        c_f0_f1, _ = self.compute_lagged_cross_correlation(f0, f1)
-        c_f1_f2, _ = self.compute_lagged_cross_correlation(f1, f2)
-        c_f2_f3, _ = self.compute_lagged_cross_correlation(f2, f3)
-        c_e_f0, _ = self.compute_lagged_cross_correlation(energy, f0)
-        phase_continuity_score = float(np.mean(phase_disp)) if len(phase_disp) > 0 else 0.05
-        formant_std = float(np.std(f1)) / 1000.0
-
-        observed_features = np.array([
-            abs(c_f0_f1),
-            abs(c_f1_f2),
-            abs(c_f2_f3),
-            abs(c_e_f0),
-            phase_continuity_score,
-            formant_std,
-        ])
+        observed_features, comps = self.compute_coupling_vector(trajectories)
+        c_f0_f1 = comps["c_f0_f1"]
+        c_f1_f2 = comps["c_f1_f2"]
+        c_f2_f3 = comps["c_f2_f3"]
+        c_e_f0 = comps["c_e_f0"]
+        phase_continuity_score = comps["phase_continuity_score"]
 
         # 2. Mahalanobis Distance against Human Speech Manifold
-        diff = observed_features - self.HUMAN_COUPLING_MEAN
-        mahalanobis_sq = np.sum((diff / self.HUMAN_COUPLING_STD) ** 2)
+        diff = observed_features - self.human_coupling_mean
+        mahalanobis_sq = np.sum((diff / self.human_coupling_std) ** 2)
         mahalanobis_dist = float(np.sqrt(max(0.0, mahalanobis_sq)))
 
         # Calibrate Mahalanobis distance to PCVS score [0, 1]

@@ -73,11 +73,16 @@ class TBPCCryptoChallenge:
 class TBPCResponseVerifier:
     """Multidimensional verification engine for spoken challenge responses (FR-10)."""
 
-    def __init__(self, target_sample_rate: int = 16000) -> None:
+    def __init__(
+        self,
+        target_sample_rate: int = 16000,
+        detector: Optional[BaselineAntiSpoofDetector] = None,
+        bafv_extractor: Optional[BiomechanicalFeatureExtractor] = None,
+    ) -> None:
         self.target_sample_rate = target_sample_rate
         self.processor = AudioProcessor(target_sample_rate=target_sample_rate)
-        self.detector = BaselineAntiSpoofDetector()
-        self.bafv_extractor = BiomechanicalFeatureExtractor(sample_rate=target_sample_rate)
+        self.detector = detector or BaselineAntiSpoofDetector()
+        self.bafv_extractor = bafv_extractor or BiomechanicalFeatureExtractor(sample_rate=target_sample_rate)
 
     def evaluate_response_timing(
         self,

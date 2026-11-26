@@ -18,8 +18,10 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 
+import json
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 
@@ -64,9 +66,65 @@ class OpenSetGeneratorDetector:
     # Genuine human speech manifold baseline centroid
     HUMAN_MANIFOLD_CENTROID = np.array([0.15, 0.85, 0.12, 0.88, 0.80])
     HUMAN_MANIFOLD_RADIUS_95TH = 0.55
+    DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parent.parent / "models" / "calibration_stats.json"
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, calibration_path: Optional[Union[str, Path]] = None) -> None:
+        self.human_manifold_centroid = self.HUMAN_MANIFOLD_CENTROID.copy()
+        self.human_manifold_radius_95th = self.HUMAN_MANIFOLD_RADIUS_95TH
+        self.known_generators: Dict[str, Dict[str, Any]] = {
+            k: {**v, "centroid": v["centroid"].copy()} for k, v in self.KNOWN_GENERATORS.items()
+        }
+        self.calibration_loaded = False
+        self._load_calibration(calibration_path)
+
+    def _load_calibration(self, calibration_path: Optional[Union[str, Path]]) -> None:
+        """Load empirical open-set centroids from calibration JSON if available."""
+        env_path = os.environ.get("BAFV_CALIBRATION_PATH")
+        candidate = Path(calibration_path) if calibration_path else (
+            Path(env_path) if env_path else self.DEFAULT_CALIBRATION_PATH
+        )
+        if not candidate.exists() or not candidate.is_file():
+            return
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+            centroid = payload.get("human_manifold_centroid")
+            if isinstance(centroid, list) and len(centroid) == 5:
+                self.human_manifold_centroid = np.array(centroid, dtype=np.float64)
+                self.calibration_loaded = True
+            if isinstance(payload.get("human_manifold_radius_95th"), (int, float)):
+                self.human_manifold_radius_95th = float(payload["human_manifold_radius_95th"])
+            gens = payload.get("known_generators")
+            if isinstance(gens, dict):
+                for gen_name, gen_meta in gens.items():
+                    c_arr = gen_meta.get("centroid")
+                    if isinstance(c_arr, list) and len(c_arr) == 5:
+                        self.known_generators[gen_name] = {
+                            "family": gen_meta.get("family", "Custom-Calibrated"),
+                            "centroid": np.array(c_arr, dtype=np.float64),
+                            "max_cluster_radius": float(gen_meta.get("max_cluster_radius", 0.50)),
+                            "description": gen_meta.get("description", f"Calibrated generator cluster ({gen_name})"),
+                        }
+        except Exception:
+            pass
+
+    @staticmethod
+    def build_observation_vector(
+        spoof_prob: float,
+        pcvs_score: float,
+        mahalanobis_dist: float,
+        jitter_percent: float,
+        shimmer_percent: float,
+    ) -> np.ndarray:
+        """Build 5D normalized open-set observation vector."""
+        norm_jitter = float(np.clip(jitter_percent / 2.0, 0.0, 1.0))
+        norm_shimmer = float(np.clip(shimmer_percent / 5.0, 0.0, 1.0))
+        return np.array([
+            float(np.clip(spoof_prob, 0.0, 1.0)),
+            norm_jitter,
+            float(np.clip(pcvs_score, 0.0, 1.0)),
+            norm_shimmer,
+            float(np.clip(1.0 - (mahalanobis_dist / 6.0), 0.0, 1.0)),
+        ], dtype=np.float64)
 
     def evaluate_open_set(
         self,
@@ -77,22 +135,19 @@ class OpenSetGeneratorDetector:
         shimmer_percent: float,
     ) -> Dict[str, Any]:
         """Classify attack architecture or identify zero-day synthetic generator (FR-04)."""
-        # Form normalized observation vector
-        norm_jitter = float(np.clip(jitter_percent / 2.0, 0.0, 1.0))
-        norm_shimmer = float(np.clip(shimmer_percent / 5.0, 0.0, 1.0))
-        obs = np.array([
-            float(np.clip(spoof_prob, 0.0, 1.0)),
-            norm_jitter,
-            float(np.clip(pcvs_score, 0.0, 1.0)),
-            norm_shimmer,
-            float(np.clip(1.0 - (mahalanobis_dist / 6.0), 0.0, 1.0)),
-        ])
+        obs = self.build_observation_vector(
+            spoof_prob=spoof_prob,
+            pcvs_score=pcvs_score,
+            mahalanobis_dist=mahalanobis_dist,
+            jitter_percent=jitter_percent,
+            shimmer_percent=shimmer_percent,
+        )
 
         # Distance from genuine human manifold
-        dist_to_human = float(np.linalg.norm(obs - self.HUMAN_MANIFOLD_CENTROID))
+        dist_to_human = float(np.linalg.norm(obs - self.human_manifold_centroid))
         # An utterance is considered synthetic if either spoof probability or PCVS is elevated,
         # or if it lies significantly outside the human physiological manifold.
-        is_outside_human_manifold = (spoof_prob >= 0.40 or pcvs_score >= 0.40) or (dist_to_human > 0.85)
+        is_outside_human_manifold = (spoof_prob >= 0.40 or pcvs_score >= 0.40) or (dist_to_human > max(0.85, self.human_manifold_radius_95th))
 
         if not is_outside_human_manifold:
             return {
@@ -108,7 +163,7 @@ class OpenSetGeneratorDetector:
         best_match = None
         min_cluster_dist = float("inf")
 
-        for gen_name, gen_meta in self.KNOWN_GENERATORS.items():
+        for gen_name, gen_meta in self.known_generators.items():
             dist = float(np.linalg.norm(obs - gen_meta["centroid"]))
             if dist < min_cluster_dist:
                 min_cluster_dist = dist

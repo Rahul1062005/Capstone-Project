@@ -52,6 +52,8 @@ data/external/
 data/processed/*.wav
 data/processed/*.flac
 data/processed/*.mp3
+models/*.pt
+models/*.pth
 models/checkpoints/*.pt
 models/checkpoints/*.pth
 models/checkpoints/*.onnx

@@ -16,8 +16,9 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
+@CrossOrigin(originPatterns = "*")
 public class GatewayController {
+
 
     private final ChallengeService challengeService;
     private final AuditService auditService;
@@ -101,39 +102,63 @@ public class GatewayController {
         try {
             // Forward audio to Python AI Microservice
             Map<String, Object> aiResult = aiProxyService.analyzeAudio(file);
+            if (aiResult == null) {
+                return ResponseEntity.status(502).body(Map.of("error", "AI microservice returned an empty response."));
+            }
 
             // Forward to Python Risk Engine
             Map<String, Object> baselineDetection = (Map<String, Object>) aiResult.get("baseline_detection");
-            Map<String, Object> scores = (Map<String, Object>) baselineDetection.get("scores");
+            Map<String, Object> scores = baselineDetection != null ? (Map<String, Object>) baselineDetection.get("scores") : null;
             Map<String, Object> channelMeta = (Map<String, Object>) aiResult.get("channel_metadata");
+            Map<String, Object> telephonyConf = (Map<String, Object>) aiResult.get("telephony_confidence");
             Map<String, Object> biomechanics = (Map<String, Object>) aiResult.get("biomechanical_features");
 
-            Map<String, Object> riskPayload = Map.of(
-                    "audio_evidence", Map.of(
-                            "voice_spoof_prob", scores.get("spoof_probability"),
-                            "bafv_pcta_score", biomechanics.get("bafv_anomaly_score"),
-                            "sustained_stability_risk", 0.2,
-                            "channel_confidence", channelMeta.get("channel_confidence")
-                    ),
-                    "transaction_context", Map.of(
-                            "transaction_id", txnId,
-                            "amount_inr", amountInr,
-                            "is_new_beneficiary", isNewBeneficiary,
-                            "transfer_velocity_per_hour", velocity
-                    ),
-                    "previous_smoothed_score", 0.0
-            );
+            if (scores == null || channelMeta == null || biomechanics == null) {
+                return ResponseEntity.status(502).body(Map.of("error", "AI microservice response is missing required detection fields."));
+            }
+
+            Object spoofProb = scores.get("spoof_probability");
+            Object bafvScore = biomechanics.get("bafv_anomaly_score");
+            Object channelConf = telephonyConf != null && telephonyConf.get("channel_confidence") != null
+                    ? telephonyConf.get("channel_confidence")
+                    : channelMeta.get("channel_confidence");
+
+            Map<String, Object> audioEvidence = new HashMap<>();
+            audioEvidence.put("voice_spoof_prob", spoofProb != null ? spoofProb : 0.0);
+            audioEvidence.put("bafv_pcta_score", bafvScore != null ? bafvScore : 0.0);
+            audioEvidence.put("sustained_stability_risk", 0.2);
+            audioEvidence.put("channel_confidence", channelConf != null ? channelConf : 1.0);
+
+            Map<String, Object> txnContext = new HashMap<>();
+            txnContext.put("transaction_id", txnId);
+            txnContext.put("amount_inr", amountInr);
+            txnContext.put("is_new_beneficiary", isNewBeneficiary);
+            txnContext.put("transfer_velocity_per_hour", velocity);
+
+            Map<String, Object> riskPayload = new HashMap<>();
+            riskPayload.put("audio_evidence", audioEvidence);
+            riskPayload.put("transaction_context", txnContext);
+            riskPayload.put("previous_smoothed_score", 0.0);
 
             Map<String, Object> riskDecision = aiProxyService.evaluateRisk(riskPayload);
+            if (riskDecision == null) {
+                return ResponseEntity.status(502).body(Map.of("error", "Risk engine returned an empty response."));
+            }
 
-            // Log to cryptographic audit chain
-            AuditRecord record = auditService.appendRecord("AUDIO_SCAN_ANALYZED", txnId, Map.of(
-                    "file_name", file.getOriginalFilename() != null ? file.getOriginalFilename() : "scan.wav",
-                    "file_size_bytes", file.getSize(),
-                    "spoof_probability", scores.get("spoof_probability"),
-                    "recommendation", riskDecision.get("recommended_action") != null ? riskDecision.get("recommended_action") : scores.get("recommended_action"),
-                    "channel_confidence", channelMeta.get("channel_confidence")
-            ));
+            Object finalRecommendation = riskDecision.get("recommended_action") != null
+                    ? riskDecision.get("recommended_action")
+                    : scores.get("recommended_action");
+
+            // Log to cryptographic audit chain (null-safe HashMap)
+            Map<String, Object> auditFeatures = new HashMap<>();
+            auditFeatures.put("file_name", file.getOriginalFilename() != null ? file.getOriginalFilename() : "scan.wav");
+            auditFeatures.put("file_size_bytes", file.getSize());
+            auditFeatures.put("spoof_probability", spoofProb != null ? spoofProb : 0.0);
+            auditFeatures.put("recommendation", finalRecommendation != null ? finalRecommendation : "VERIFY");
+            auditFeatures.put("channel_confidence", channelConf != null ? channelConf : 1.0);
+            auditFeatures.put("transfer_amount", amountInr);
+
+            AuditRecord record = auditService.appendRecord("AUDIO_SCAN_ANALYZED", txnId, auditFeatures);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -144,7 +169,8 @@ public class GatewayController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return ResponseEntity.status(502).body(Map.of("error", message));
         }
     }
 

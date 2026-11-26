@@ -11,6 +11,7 @@ Complies with:
 from __future__ import annotations
 
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -92,6 +93,7 @@ class BaselineAntiSpoofDetector:
     MODEL_VERSION = "v1.2.0-baseline"
     PROVENANCE = "Spectro-temporal graph/attention architecture baseline calibrated for ASVspoof 2019 LA protocols"
     TARGET_SR = 16000
+    DEFAULT_CHECKPOINT_PATH = Path(__file__).resolve().parent.parent / "models" / "aasist_baseline.pt"
 
     def __init__(
         self,
@@ -102,19 +104,33 @@ class BaselineAntiSpoofDetector:
             device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         )
         self.audio_processor = AudioProcessor(target_sample_rate=self.TARGET_SR)
+        self.weights_source = "untrained_seed_init"
+        self.checkpoint_path: Optional[str] = None
 
         self.model = SpectroTemporalBaselineNetwork(n_mels=80, num_classes=2).to(self.device)
         self._initialize_or_load_checkpoint(checkpoint_path)
         self.model.eval()
 
     def _initialize_or_load_checkpoint(self, checkpoint_path: Optional[Union[str, Path]]) -> None:
-        """Load pretrained checkpoint or initialize calibrated weights with reproducible seed."""
-        if checkpoint_path and Path(checkpoint_path).exists():
-            logger.info("Loading model weights from checkpoint: %s", checkpoint_path)
-            state_dict = torch.load(checkpoint_path, map_location=self.device)
+        """Load trained checkpoint if available, else fall back to deterministic seed init."""
+        env_checkpoint = os.environ.get("BAFV_CHECKPOINT_PATH")
+        candidate = Path(checkpoint_path) if checkpoint_path else (
+            Path(env_checkpoint) if env_checkpoint else self.DEFAULT_CHECKPOINT_PATH
+        )
+
+        if candidate.exists() and candidate.is_file():
+            logger.info("Loading trained model weights from checkpoint: %s", candidate)
+            loaded = torch.load(candidate, map_location=self.device, weights_only=True)
+            state_dict = loaded["model_state_dict"] if isinstance(loaded, dict) and "model_state_dict" in loaded else loaded
             self.model.load_state_dict(state_dict)
+            self.weights_source = "trained_checkpoint"
+            self.checkpoint_path = str(candidate)
         else:
-            # Calibrated baseline initialization with fixed deterministic seed (reproducibility)
+            # Deterministic initialization fallback when no trained checkpoint is present
+            logger.warning(
+                "No trained checkpoint found at %s; using deterministic seed initialization.",
+                candidate,
+            )
             torch.manual_seed(2026)
             for m in self.model.modules():
                 if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
@@ -221,6 +237,8 @@ class BaselineAntiSpoofDetector:
             "model_metadata": {
                 "model_name": self.MODEL_NAME,
                 "model_version": self.MODEL_VERSION,
+                "weights_source": self.weights_source,
+                "checkpoint_loaded": self.checkpoint_path is not None,
                 "provenance": self.PROVENANCE,
                 "target_sample_rate": self.TARGET_SR,
                 "device": str(self.device),

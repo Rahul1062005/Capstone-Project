@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: bafv-pcta-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ai_service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+
+  - type: web
+    name: bafv-pcta-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    healthCheckPath: /health
+    envVars:
+      # Set this in Render Dashboard to your deployed bafv-pcta-ai HTTPS URL
+      # (e.g., https://bafv-pcta-ai.onrender.com or Hugging Face Space URL)
+      - key: PYTHON_AI_URL
+        sync: false
+      - key: SECURITY_HMAC_SECRET
+        generateValue: true

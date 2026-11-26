@@ -1,0 +1,12 @@
+.git/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.log
+node_modules/
+frontend/dist/
+backend/.gradle/
+backend/build/
+backend/bin/
+data/raw/
+data/external/

@@ -19,8 +19,16 @@ public class AiProxyService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    private String baseAiUrl() {
+        String url = pythonAiUrl != null ? pythonAiUrl.trim() : "http://127.0.0.1:8000";
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "http://" + url;
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
     public Map<String, Object> analyzeAudio(MultipartFile file) throws Exception {
-        String url = pythonAiUrl + "/api/v1/detect/file";
+        String url = baseAiUrl() + "/api/v1/detect/file";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -41,17 +49,13 @@ public class AiProxyService {
     }
 
     public Map<String, Object> evaluateRisk(Map<String, Object> payload) {
-        String url = pythonAiUrl + "/api/v1/risk/evaluate";
+        String url = baseAiUrl() + "/api/v1/risk/evaluate";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
-        try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
-            return response.getBody();
-        } catch (Exception e) {
-            return Map.of("error", e.getMessage());
-        }
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+        return response.getBody();
     }
 }
