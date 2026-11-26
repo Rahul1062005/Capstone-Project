@@ -9,10 +9,12 @@ import {
   FileCheck2,
   HelpCircle,
   Mic,
+  Moon,
   PhoneCall,
   Play,
   RefreshCw,
   ShieldCheck,
+  Sun,
   Trash2,
   Upload,
   Volume2,
@@ -87,6 +89,24 @@ const SAMPLE_PRESETS = {
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('inspector');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      return localStorage.getItem('voiceshield_theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('voiceshield_theme', theme);
+    } catch {
+      // Ignore storage failures in restricted contexts
+    }
+  }, [theme]);
+
+  const isDark = theme === 'dark';
 
   // Gateway & explicit error states (FR-13)
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -506,11 +526,11 @@ export const App: React.FC = () => {
               width: '30px',
               height: '30px',
               borderRadius: '6px',
-              background: '#0f172a',
+              background: 'var(--action-primary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ffffff',
+              color: 'var(--action-primary-text)',
             }}
           >
             <ShieldCheck size={18} />
@@ -525,7 +545,7 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <span
             className={`status-badge ${
               backendStatus === 'online'
@@ -571,6 +591,17 @@ export const App: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
+            className="btn-secondary"
+            style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+            title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+            aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+          >
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            <span>{isDark ? 'Light' : 'Dark'}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('guide')}
             className="btn-secondary"
             style={{ padding: '5px 11px', fontSize: '0.78rem' }}
@@ -610,7 +641,7 @@ export const App: React.FC = () => {
                         className={`nav-item ${isActive ? 'active' : ''}`}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                          <Icon size={15} color={isActive ? '#0f172a' : '#667085'} />
+                          <Icon size={15} color={isActive ? 'var(--text-primary)' : 'var(--text-muted)'} />
                           {item.label}
                         </span>
                         {typeof item.count === 'number' && (
@@ -619,7 +650,7 @@ export const App: React.FC = () => {
                             style={{
                               fontSize: '0.72rem',
                               color: 'var(--text-muted)',
-                              background: isActive ? '#ffffff' : 'var(--bg-muted)',
+                              background: isActive ? 'var(--bg-surface)' : 'var(--bg-muted)',
                               border: '1px solid var(--border-hairline)',
                               borderRadius: '4px',
                               padding: '0 6px',
@@ -660,7 +691,7 @@ export const App: React.FC = () => {
                         className={`nav-item ${isActive ? 'active' : ''}`}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                          <Icon size={15} color={isActive ? '#0f172a' : '#667085'} />
+                          <Icon size={15} color={isActive ? 'var(--text-primary)' : 'var(--text-muted)'} />
                           {item.label}
                         </span>
                       </button>
@@ -832,8 +863,9 @@ export const App: React.FC = () => {
                               style={{
                                 padding: '4px 6px',
                                 fontSize: '0.72rem',
-                                background: amountInr === amt ? '#f2f4f7' : '#ffffff',
-                                borderColor: amountInr === amt ? '#0f172a' : undefined,
+                                background: amountInr === amt ? 'var(--bg-muted)' : 'var(--bg-surface)',
+                                borderColor: amountInr === amt ? 'var(--action-primary)' : undefined,
+                                color: amountInr === amt ? 'var(--text-primary)' : undefined,
                               }}
                             >
                               {amt >= 100000 ? `₹${amt / 100000}L` : `₹${amt / 1000}k`}
@@ -864,7 +896,7 @@ export const App: React.FC = () => {
                           type="checkbox"
                           checked={isNewBeneficiary}
                           onChange={(e) => setIsNewBeneficiary(e.target.checked)}
-                          style={{ width: '16px', height: '16px', accentColor: '#0f172a' }}
+                          style={{ width: '16px', height: '16px', accentColor: 'var(--action-primary)' }}
                         />
                       </label>
                     </div>
@@ -887,7 +919,7 @@ export const App: React.FC = () => {
                           <div style={{ fontWeight: 600, color: 'var(--danger-text)', fontSize: '0.88rem' }}>
                             Analysis Unavailable (FR-13 Fail-Secure)
                           </div>
-                          <p style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '3px' }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--danger-text)', marginTop: '3px' }}>
                             {scanError}
                           </p>
                         </div>
@@ -1129,28 +1161,38 @@ export const App: React.FC = () => {
                           <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e4e7ec" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#252932' : '#e4e7ec'} />
                       <XAxis
                         dataKey="start_time_seconds"
-                        stroke="#667085"
+                        stroke={isDark ? '#707887' : '#667085'}
                         fontSize={12}
                         tickFormatter={(v) => `${Number(v).toFixed(1)}s`}
                       />
-                      <YAxis domain={[0, 1]} stroke="#667085" fontSize={12} />
+                      <YAxis domain={[0, 1]} stroke={isDark ? '#707887' : '#667085'} fontSize={12} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#ffffff',
-                          borderColor: '#d0d5dd',
+                          backgroundColor: isDark ? '#14161a' : '#ffffff',
+                          borderColor: isDark ? '#323743' : '#d0d5dd',
                           borderRadius: '6px',
                           fontSize: '0.78rem',
-                          color: '#101828',
-                          boxShadow: '0 4px 12px rgba(16,24,40,0.08)',
+                          color: isDark ? '#eceef2' : '#101828',
+                          boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(16,24,40,0.08)',
                         }}
                       />
-                      <ReferenceLine y={0.35} stroke="#059669" strokeDasharray="4 4" label={{ value: 'Verify Threshold (0.35)', fill: '#065f46', fontSize: 11 }} />
-                      <ReferenceLine y={0.75} stroke="#dc2626" strokeDasharray="4 4" label={{ value: 'Hold Threshold (0.75)', fill: '#991b1b', fontSize: 11 }} />
-                      <Area type="monotone" dataKey="instantaneous_risk" stroke="#2563eb" strokeWidth={1.75} fill="url(#fillInstant)" />
-                      <Area type="monotone" dataKey="smoothed_risk" stroke="#dc2626" strokeWidth={2.25} fill="url(#fillSmoothed)" />
+                      <ReferenceLine
+                        y={0.35}
+                        stroke={isDark ? '#10b981' : '#059669'}
+                        strokeDasharray="4 4"
+                        label={{ value: 'Verify Threshold (0.35)', fill: isDark ? '#6ee7b7' : '#065f46', fontSize: 11 }}
+                      />
+                      <ReferenceLine
+                        y={0.75}
+                        stroke={isDark ? '#ef4444' : '#dc2626'}
+                        strokeDasharray="4 4"
+                        label={{ value: 'Hold Threshold (0.75)', fill: isDark ? '#fca5a5' : '#991b1b', fontSize: 11 }}
+                      />
+                      <Area type="monotone" dataKey="instantaneous_risk" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth={1.75} fill="url(#fillInstant)" />
+                      <Area type="monotone" dataKey="smoothed_risk" stroke={isDark ? '#f87171' : '#dc2626'} strokeWidth={2.25} fill="url(#fillSmoothed)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
