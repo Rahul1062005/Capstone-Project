@@ -208,10 +208,19 @@ export const App: React.FC = () => {
         formData.append('is_new_beneficiary', String(activeNewBene));
         formData.append('transfer_velocity_per_hour', '1');
 
-        const response = await fetch(`${GATEWAY_URL}/api/scan/analyze`, {
+        let response = await fetch(`${GATEWAY_URL}/api/scan/analyze`, {
           method: 'POST',
           body: formData,
         });
+
+        // If Render's free AI container was asleep and returned 502 during wake-up, retry once
+        if (response.status === 502) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          response = await fetch(`${GATEWAY_URL}/api/scan/analyze`, {
+            method: 'POST',
+            body: formData,
+          });
+        }
 
         setBackendStatus('online');
         const payload = await response.json().catch(() => ({}));

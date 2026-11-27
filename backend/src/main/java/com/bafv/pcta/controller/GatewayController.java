@@ -169,7 +169,10 @@ public class GatewayController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            String raw = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            String message = (raw.contains("<!DOCTYPE") || raw.contains("<html") || raw.length() > 300)
+                    ? "AI engine is waking up or temporarily unavailable (HTTP 502). Please retry in a few seconds."
+                    : raw;
             return ResponseEntity.status(502).body(Map.of("error", message));
         }
     }
