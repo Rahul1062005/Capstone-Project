@@ -110,6 +110,7 @@ export const App: React.FC = () => {
 
   // Gateway & explicit error states (FR-13)
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [wakeupNote, setWakeupNote] = useState('Connecting to gateway and waking AI engine...');
   const [scanError, setScanError] = useState<string | null>(null);
   const [challengeError, setChallengeError] = useState<string | null>(null);
 
@@ -336,43 +337,55 @@ export const App: React.FC = () => {
     [amountInr, customAudioUrl, customFile, fetchAuditRecords, isNewBeneficiary, transactionId]
   );
 
+  const wakeBackendAndScan = useCallback(async (isActive?: () => boolean) => {
+    setBackendStatus('checking');
+    setScanError(null);
+    const maxAttempts = 30; // Up to ~120s for back-to-back Render free-tier cold starts
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (isActive && !isActive()) return;
+      try {
+        const res = await fetch(`${GATEWAY_URL}/api/warmup`);
+        if (isActive && !isActive()) return;
+
+        if (res.ok) {
+          const info = await res.json().catch(() => ({}));
+          if (info.ai_ready) {
+            setBackendStatus('online');
+            await fetchAuditRecords();
+            await runCallAnalysis('genuine_clean');
+            return;
+          }
+          setWakeupNote(`Gateway online · Waking AI engine (check ${attempt}/${maxAttempts}, ~45–75s on free tier)...`);
+        } else if (res.status === 404) {
+          const healthRes = await fetch(`${GATEWAY_URL}/health`);
+          if (healthRes.ok) {
+            setBackendStatus('online');
+            await fetchAuditRecords();
+            await runCallAnalysis('genuine_clean');
+            return;
+          }
+        } else {
+          setWakeupNote(`Waking cloud servers (check ${attempt}/${maxAttempts})...`);
+        }
+      } catch {
+        setWakeupNote(`Waking cloud servers (check ${attempt}/${maxAttempts}, usually 45–75s after idle)...`);
+      }
+
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+      }
+    }
+
+    if (!isActive || isActive()) {
+      setBackendStatus('offline');
+    }
+  }, [fetchAuditRecords, runCallAnalysis]);
+
   // Initial connection check on mount with automatic cold-start wake-up retries
   useEffect(() => {
     let active = true;
-    const bootstrap = async () => {
-      const maxAttempts = 12; // Up to ~48s for Render free-tier cold starts
-      for (let attempt = 1; attempt <= maxAttempts && active; attempt++) {
-        try {
-          const res = await fetch(`${GATEWAY_URL}/api/warmup`);
-          if (!active) return;
-          if (res.ok) {
-            const info = await res.json().catch(() => ({}));
-            if (info.ai_ready) {
-              setBackendStatus('online');
-              await fetchAuditRecords();
-              await runCallAnalysis('genuine_clean');
-              return;
-            }
-          } else if (res.status === 404) {
-            // Fallback for older gateway builds without /api/warmup
-            const healthRes = await fetch(`${GATEWAY_URL}/health`);
-            if (healthRes.ok) {
-              setBackendStatus('online');
-              await fetchAuditRecords();
-              await runCallAnalysis('genuine_clean');
-              return;
-            }
-          }
-        } catch {
-          // Gateway still booting or redeploying; retry below
-        }
-        if (attempt < maxAttempts && active) {
-          await new Promise((resolve) => setTimeout(resolve, 4000));
-        }
-      }
-      if (active) setBackendStatus('offline');
-    };
-    void bootstrap();
+    void wakeBackendAndScan(() => active);
     return () => {
       active = false;
     };
@@ -1116,12 +1129,21 @@ export const App: React.FC = () => {
                   )}
 
                   {!scanResult && !scanError && (
-                    <div className="surface-card" style={{ padding: '28px', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
-                      {isAnalyzing
-                        ? 'Running neural anti-spoofing and biomechanical coupling analysis...'
-                        : backendStatus === 'checking'
-                        ? 'Connecting to gateway and waking AI engine (up to ~45s after idle)...'
-                        : 'Select a sample recording or upload a .wav file to begin inspection.'}
+                    <div className="surface-card" style={{ padding: '24px', color: 'var(--text-secondary)', fontSize: '0.86rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <span>
+                        {isAnalyzing
+                          ? 'Running neural anti-spoofing and biomechanical coupling analysis...'
+                          : backendStatus === 'checking'
+                          ? wakeupNote
+                          : backendStatus === 'offline'
+                          ? `Could not reach ${GATEWAY_URL}. Render's free tier may still be waking up.`
+                          : 'Select a sample recording or upload a .wav file to begin inspection.'}
+                      </span>
+                      {backendStatus === 'offline' && (
+                        <button className="btn-secondary" onClick={() => void wakeBackendAndScan()}>
+                          <RefreshCw size={14} /> Wake & Reconnect
+                        </button>
+                      )}
                     </div>
                   )}
 
