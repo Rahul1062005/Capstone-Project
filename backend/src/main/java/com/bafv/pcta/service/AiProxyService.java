@@ -58,4 +58,15 @@ public class AiProxyService {
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
         return response.getBody();
     }
+
+    public Map<String, Object> verifyChallenge(Map<String, Object> payload) {
+        String url = baseAiUrl() + "/api/v1/tbpc/verify";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+        return response.getBody();
+    }
 }

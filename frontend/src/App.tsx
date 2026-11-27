@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -132,8 +132,15 @@ export const App: React.FC = () => {
   // TB-PC Challenge state
   const [challengeData, setChallengeData] = useState<any>(null);
   const [isGeneratingChallenge, setIsGeneratingChallenge] = useState(false);
+  const [isRecordingChallenge, setIsRecordingChallenge] = useState(false);
+  const [isVerifyingChallenge, setIsVerifyingChallenge] = useState(false);
+  const [spokenTranscript, setSpokenTranscript] = useState('');
   const [challengeSecondsLeft, setChallengeSecondsLeft] = useState(60);
   const [challengeEvaluation, setChallengeEvaluation] = useState<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const micChunksRef = useRef<Blob[]>([]);
+  const recordStartMsRef = useRef<number>(0);
+  const speechRecRef = useRef<any>(null);
 
   // Audit ledger state
   const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
@@ -381,6 +388,7 @@ export const App: React.FC = () => {
       });
       setChallengeSecondsLeft(data.validity_seconds || 60);
       setChallengeEvaluation(null);
+      setSpokenTranscript('');
       await fetchAuditRecords();
     } catch (err: any) {
       const msg = err?.message || 'Unable to issue spoken challenge.';
@@ -437,6 +445,154 @@ export const App: React.FC = () => {
         message: 'Audio triggered faster than human reaction time or failed to recite the ephemeral transaction code.',
         next_step: 'Hold transfer immediately and flag call for fraud review.',
       });
+    }
+  };
+
+  const resampleBlobTo16kPcm = async (audioBlob: Blob): Promise<{ samples: number[]; speechOnsetOffsetSec: number }> => {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const decodeCtx = new AudioCtx();
+    try {
+      const decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+      const targetSr = 16000;
+      const targetLen = Math.max(1, Math.ceil(decoded.duration * targetSr));
+      const offline = new OfflineAudioContext(1, targetLen, targetSr);
+      const src = offline.createBufferSource();
+      src.buffer = decoded;
+      src.connect(offline.destination);
+      src.start(0);
+      const rendered = await offline.startRendering();
+      const pcm = rendered.getChannelData(0);
+
+      // Estimate first speech onset offset inside recorded clip (20ms window RMS > 0.015)
+      let onsetSample = 0;
+      const win = 320;
+      for (let i = 0; i + win <= pcm.length; i += win) {
+        let sumSq = 0;
+        for (let j = 0; j < win; j++) sumSq += pcm[i + j] * pcm[i + j];
+        if (Math.sqrt(sumSq / win) > 0.015) {
+          onsetSample = i;
+          break;
+        }
+      }
+
+      return {
+        samples: Array.from(pcm, (v) => Number(v.toFixed(5))),
+        speechOnsetOffsetSec: onsetSample / targetSr,
+      };
+    } finally {
+      await decodeCtx.close();
+    }
+  };
+
+  const startChallengeMicRecording = async () => {
+    if (!challengeData || isRecordingChallenge) return;
+    setChallengeError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) micChunksRef.current.push(ev.data);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      recordStartMsRef.current = Date.now();
+      setIsRecordingChallenge(true);
+
+      // Optional browser SpeechRecognition for automatic digit transcription when available
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRec) {
+        try {
+          const rec = new SpeechRec();
+          rec.lang = 'en-US';
+          rec.interimResults = true;
+          rec.onresult = (event: any) => {
+            const text = Array.from(event.results as ArrayLike<any>)
+              .map((r: any) => r[0]?.transcript || '')
+              .join(' ')
+              .trim();
+            if (text) setSpokenTranscript(text);
+          };
+          rec.start();
+          speechRecRef.current = rec;
+        } catch {
+          speechRecRef.current = null;
+        }
+      }
+    } catch (err: any) {
+      setChallengeError(err?.message || 'Microphone access denied or unavailable in this browser.');
+    }
+  };
+
+  const stopAndVerifyChallengeMic = async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || !challengeData) return;
+
+    setIsRecordingChallenge(false);
+    setIsVerifyingChallenge(true);
+    setChallengeError(null);
+
+    if (speechRecRef.current) {
+      try {
+        speechRecRef.current.stop();
+      } catch {
+        // Ignore stop errors
+      }
+      speechRecRef.current = null;
+    }
+
+    try {
+      const blob = await new Promise<Blob>((resolve) => {
+        recorder.onstop = () => {
+          recorder.stream.getTracks().forEach((t) => t.stop());
+          resolve(new Blob(micChunksRef.current, { type: recorder.mimeType || 'audio/webm' }));
+        };
+        recorder.stop();
+      });
+
+      const { samples, speechOnsetOffsetSec } = await resampleBlobTo16kPcm(blob);
+      const promptDisplayedSec = challengeData.created_at / 1000.0;
+      const responseStartedSec = recordStartMsRef.current / 1000.0 + speechOnsetOffsetSec;
+
+      const res = await fetch(`${GATEWAY_URL}/api/challenge/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction_id: challengeData.transaction_id,
+          samples,
+          expected_digits: challengeData.expected_digits,
+          transcribed_text: spokenTranscript.trim(),
+          prompt_displayed_at: promptDisplayedSec,
+          response_started_at: responseStartedSec,
+        }),
+      });
+
+      setBackendStatus('online');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || data.detail || `Verification failed (HTTP ${res.status})`);
+      }
+
+      const status = data.challenge_status || 'INCONCLUSIVE';
+      const diag = data.detailed_diagnostics || {};
+      const isPass = status === 'PASS';
+      setChallengeEvaluation({
+        verdict: `${status} · SCORE ${Math.round((Number(data.composite_score || 0)) * 100)}%`,
+        is_safe: isPass,
+        latency_diagnosis: `${diag.measured_response_delay_sec ?? '—'}s delay (${diag.timing_check || 'LIVE MIC'})`,
+        message: `Content: ${diag.content_check || 'CHECKED'} · Articulation: ${diag.articulation_check || 'CHECKED'} · Spoof Prob: ${Math.round(Number(diag.voice_spoof_probability || 0) * 100)}%`,
+        next_step: isPass
+          ? 'Live speaker verified. Proceed with transaction.'
+          : status === 'INCONCLUSIVE'
+          ? 'Result inconclusive. Rotate challenge or perform out-of-band callback.'
+          : 'Challenge failed. Hold transfer and escalate to fraud desk.',
+      });
+      await fetchAuditRecords();
+    } catch (err: any) {
+      setChallengeError(err?.message || 'Live challenge verification failed.');
+    } finally {
+      setIsVerifyingChallenge(false);
     }
   };
 
@@ -1337,10 +1493,59 @@ export const App: React.FC = () => {
                 </div>
 
                 <div className="surface-card" style={{ padding: '20px' }}>
-                  <h2 style={{ fontSize: '0.96rem', marginBottom: '6px' }}>2. Simulate Caller Response Cadence</h2>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                    Demonstrates how response initiation delay separates live speakers from real-time TTS cloners and replay bots.
+                  <h2 style={{ fontSize: '0.96rem', marginBottom: '6px' }}>2. Verify Caller Response (Live Mic or Simulation)</h2>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                    Record a live voice response into the microphone (sent to <span className="mono">/api/challenge/verify</span>) or test preset cadence scenarios below.
                   </p>
+
+                  {/* Live Microphone Verification */}
+                  <div className="surface-subtle" style={{ padding: '12px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                        Live Microphone Capture
+                      </strong>
+                      {isRecordingChallenge && (
+                        <span className="status-badge status-badge-danger">
+                          <span className="dot dot-danger" /> Recording…
+                        </span>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={spokenTranscript}
+                      onChange={(e) => setSpokenTranscript(e.target.value)}
+                      placeholder="Spoken digits (auto-transcribed in Chrome/Edge, or type e.g. 4821)"
+                      className="input-field mono"
+                      style={{ fontSize: '0.78rem' }}
+                      disabled={!challengeData}
+                    />
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {!isRecordingChallenge ? (
+                        <button
+                          className="btn-primary"
+                          style={{ flex: 1 }}
+                          disabled={!challengeData || isVerifyingChallenge}
+                          onClick={() => void startChallengeMicRecording()}
+                        >
+                          <Mic size={14} /> {isVerifyingChallenge ? 'Verifying Audio…' : 'Record Live Response'}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-danger-outline"
+                          style={{ flex: 1, padding: '8px 14px', fontSize: '0.84rem' }}
+                          onClick={() => void stopAndVerifyChallengeMic()}
+                        >
+                          Stop & Verify Response
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                    Or Simulate Cadence Scenarios
+                  </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
                     <button

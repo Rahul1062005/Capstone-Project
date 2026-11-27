@@ -253,7 +253,8 @@ async def verify_spoken_challenge_response(payload: TBPCVerifyPayload) -> Dict[s
     if len(waveform) < 8000:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Challenge audio too short (<0.5s).")
 
-    return tbpc_verifier.verify_challenge(
+    return await run_in_threadpool(
+        tbpc_verifier.verify_challenge,
         audio_waveform=waveform,
         expected_digits=payload.expected_digits,
         transcribed_text=payload.transcribed_text,

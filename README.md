@@ -5,6 +5,7 @@
 **Biomechanical Acoustic Feature Verification with Physiological Coupled-Trajectory Analysis**
 
 [![Live Demo](https://img.shields.io/badge/LIVE_DEMO-voiceshield--fintech.vercel.app-0F172A?style=for-the-badge&logo=vercel&logoColor=white)](https://voiceshield-fintech.vercel.app)
+[![Open In Colab](https://img.shields.io/badge/OPEN_IN_COLAB-PHASE_7_TRAINING-F9AB00?style=for-the-badge&logo=googlecolab&logoColor=white)](https://colab.research.google.com/github/Rahul1062005/Capstone-Project/blob/main/notebooks/VoiceShield_Phase7_Train_and_Eval.ipynb)
 [![React](https://img.shields.io/badge/REACT-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![Spring Boot](https://img.shields.io/badge/SPRING_BOOT-3.4.3_(JAVA_21)-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![FastAPI](https://img.shields.io/badge/FASTAPI-AI_ENGINE-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)

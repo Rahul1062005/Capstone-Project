@@ -91,6 +91,41 @@ public class GatewayController {
         return ResponseEntity.ok(response);
     }
 
+    private String sanitizeGatewayError(Exception e) {
+        String raw = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        if (raw.contains("<!DOCTYPE") || raw.contains("<html") || raw.length() > 300) {
+            return "AI engine is waking up or temporarily unavailable (HTTP 502). Please retry in a few seconds.";
+        }
+        return raw;
+    }
+
+    @PostMapping("/api/challenge/verify")
+    public ResponseEntity<?> verifyChallenge(@RequestBody Map<String, Object> payload) {
+        try {
+            Map<String, Object> verification = aiProxyService.verifyChallenge(payload);
+            if (verification == null) {
+                return ResponseEntity.status(502).body(Map.of("error", "AI challenge verifier returned an empty response."));
+            }
+
+            String txnId = payload.get("transaction_id") != null
+                    ? String.valueOf(payload.get("transaction_id"))
+                    : "TXN-CHALLENGE";
+
+            Map<String, Object> auditFeatures = new HashMap<>();
+            auditFeatures.put("recommendation", verification.get("challenge_status"));
+            auditFeatures.put("composite_score", verification.get("composite_score"));
+
+            AuditRecord record = auditService.appendRecord("CHALLENGE_VERIFIED", txnId, auditFeatures);
+
+            Map<String, Object> response = new HashMap<>(verification);
+            response.put("audit_record_id", record.getRecord_id());
+            response.put("audit_hash", record.getRecord_hash());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(Map.of("error", sanitizeGatewayError(e)));
+        }
+    }
+
     @PostMapping("/api/scan/analyze")
     public ResponseEntity<?> analyzeAudio(
             @RequestParam("audio") MultipartFile file,
@@ -169,11 +204,7 @@ public class GatewayController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            String raw = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            String message = (raw.contains("<!DOCTYPE") || raw.contains("<html") || raw.length() > 300)
-                    ? "AI engine is waking up or temporarily unavailable (HTTP 502). Please retry in a few seconds."
-                    : raw;
-            return ResponseEntity.status(502).body(Map.of("error", message));
+            return ResponseEntity.status(502).body(Map.of("error", sanitizeGatewayError(e)));
         }
     }
 
