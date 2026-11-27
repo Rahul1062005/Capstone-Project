@@ -16,7 +16,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     grep -vE '^(torch|torchaudio)' requirements.txt | pip install --no-cache-dir -r /dev/stdin
 
 COPY ai_service ./ai_service
-RUN mkdir -p /app/models /app/.numba_cache
+COPY models ./models
+RUN mkdir -p /app/.numba_cache
 
 ENV PYTHONUNBUFFERED=1 \
     OPENBLAS_NUM_THREADS=1 \

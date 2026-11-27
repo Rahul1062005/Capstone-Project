@@ -128,10 +128,12 @@ npm --prefix frontend run lint
 
 By default, if no trained checkpoint is present in `models/aasist_baseline.pt`, `BaselineAntiSpoofDetector` falls back to deterministic seed initialization (`weights_source: "untrained_seed_init"` on `/health`) so the full pipeline can be demonstrated safely without fabricated predictions.
 
-To train on real datasets (**ASVspoof 2019 LA**, **In-the-Wild**, or custom `bonafide/` + `spoof/` folders) and calibrate the BAFV/Open-Set distributions:
-- Training script: [`scripts/train_detector.py`](scripts/train_detector.py)
-- Calibration script: [`scripts/calibrate_manifold.py`](scripts/calibrate_manifold.py)
-- Step-by-step Colab & local instructions: [`docs/TRAINING_AND_COLAB_GUIDE.md`](docs/TRAINING_AND_COLAB_GUIDE.md)
+To train on real datasets (**ASVspoof 2019 LA**, **In-the-Wild**, or custom `bonafide/` + `spoof/` folders), calibrate distributions, and generate Phase 7 benchmarks:
+- **1-Click Colab Notebook:** [`notebooks/VoiceShield_Phase7_Train_and_Eval.ipynb`](notebooks/VoiceShield_Phase7_Train_and_Eval.ipynb)
+- **Training & Calibration Scripts:** [`scripts/train_detector.py`](scripts/train_detector.py), [`scripts/calibrate_manifold.py`](scripts/calibrate_manifold.py)
+- **Phase 7 Evaluation Suite (EER / min-tDCF / LOGO):** [`scripts/evaluate_phase7.py`](scripts/evaluate_phase7.py)
+- **Step-by-Step Training Guide:** [`docs/TRAINING_AND_COLAB_GUIDE.md`](docs/TRAINING_AND_COLAB_GUIDE.md)
+- **Viva Slide Deck & Demo Script:** [`docs/VIVA_PRESENTATION_OUTLINE.md`](docs/VIVA_PRESENTATION_OUTLINE.md)
 
 ---
 
