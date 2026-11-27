@@ -57,6 +57,16 @@ public class GatewayController {
         );
     }
 
+    @GetMapping("/api/warmup")
+    public ResponseEntity<Map<String, Object>> warmup() {
+        boolean aiReady = aiProxyService.pingAiHealth();
+        return ResponseEntity.ok(Map.of(
+                "gateway", "ready",
+                "ai_ready", aiReady,
+                "timestamp", Instant.now().toString()
+        ));
+    }
+
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");

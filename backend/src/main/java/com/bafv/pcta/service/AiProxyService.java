@@ -69,4 +69,13 @@ public class AiProxyService {
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
         return response.getBody();
     }
+
+    public boolean pingAiHealth() {
+        try {
+            ResponseEntity<Map> response = restTemplate.getForEntity(baseAiUrl() + "/health", Map.class);
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

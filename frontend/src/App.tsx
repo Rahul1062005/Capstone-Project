@@ -318,9 +318,12 @@ export const App: React.FC = () => {
       } catch (err: any) {
         const msg = err?.message || 'Unable to reach the backend gateway.';
         const isNetwork = msg.includes('Failed to fetch') || msg.includes('NetworkError');
+        const isLocal = GATEWAY_URL.includes('localhost') || GATEWAY_URL.includes('127.0.0.1');
         setScanError(
           isNetwork
-            ? `Gateway unreachable at ${GATEWAY_URL}. Ensure FastAPI (port 8000) and Spring Boot (port 5000) are running.`
+            ? isLocal
+              ? `Gateway unreachable at ${GATEWAY_URL}. Start FastAPI (port 8000) and Spring Boot (port 5000).`
+              : `Cloud backend at ${GATEWAY_URL} is waking up or redeploying. Wait ~30 seconds and click Retry.`
             : msg
         );
         if (isNetwork) {
@@ -333,23 +336,41 @@ export const App: React.FC = () => {
     [amountInr, customAudioUrl, customFile, fetchAuditRecords, isNewBeneficiary, transactionId]
   );
 
-  // Initial connection check on mount (outside synchronous render path)
+  // Initial connection check on mount with automatic cold-start wake-up retries
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
-      try {
-        const res = await fetch(`${GATEWAY_URL}/health`);
-        if (!active) return;
-        if (res.ok) {
-          setBackendStatus('online');
-          await fetchAuditRecords();
-          await runCallAnalysis('genuine_clean');
-        } else {
-          setBackendStatus('offline');
+      const maxAttempts = 12; // Up to ~48s for Render free-tier cold starts
+      for (let attempt = 1; attempt <= maxAttempts && active; attempt++) {
+        try {
+          const res = await fetch(`${GATEWAY_URL}/api/warmup`);
+          if (!active) return;
+          if (res.ok) {
+            const info = await res.json().catch(() => ({}));
+            if (info.ai_ready) {
+              setBackendStatus('online');
+              await fetchAuditRecords();
+              await runCallAnalysis('genuine_clean');
+              return;
+            }
+          } else if (res.status === 404) {
+            // Fallback for older gateway builds without /api/warmup
+            const healthRes = await fetch(`${GATEWAY_URL}/health`);
+            if (healthRes.ok) {
+              setBackendStatus('online');
+              await fetchAuditRecords();
+              await runCallAnalysis('genuine_clean');
+              return;
+            }
+          }
+        } catch {
+          // Gateway still booting or redeploying; retry below
         }
-      } catch {
-        if (active) setBackendStatus('offline');
+        if (attempt < maxAttempts && active) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
       }
+      if (active) setBackendStatus('offline');
     };
     void bootstrap();
     return () => {
@@ -1098,6 +1119,8 @@ export const App: React.FC = () => {
                     <div className="surface-card" style={{ padding: '28px', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
                       {isAnalyzing
                         ? 'Running neural anti-spoofing and biomechanical coupling analysis...'
+                        : backendStatus === 'checking'
+                        ? 'Connecting to gateway and waking AI engine (up to ~45s after idle)...'
                         : 'Select a sample recording or upload a .wav file to begin inspection.'}
                     </div>
                   )}
